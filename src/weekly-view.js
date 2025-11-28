@@ -538,26 +538,187 @@ function renderCourseBlocks(schedule, buckets, options = {}) {
 		bucketColors[bucket.id] = bucket.color;
 	}
 
+	// Group by day
+	const eventsByDay = {};
 	for (const component of schedule) {
 		if (!component.timeRange || component.days.length === 0) continue;
-
-		const isConflictCourse =
-			highlightConflicts && conflictCourseIds.has(component.courseId);
-
 		for (const day of component.days) {
-			const slotsContainer = document.getElementById(`slots-${day}`);
-			if (!slotsContainer) continue;
+			if (!eventsByDay[day]) eventsByDay[day] = [];
+			eventsByDay[day].push(component);
+		}
+	}
+
+	// Render for each day
+	for (const day of Object.keys(eventsByDay)) {
+		const slotsContainer = document.getElementById(`slots-${day}`);
+		if (!slotsContainer) continue;
+
+		const events = eventsByDay[day];
+		const layout = layoutEventsForDay(events);
+
+		for (let i = 0; i < events.length; i++) {
+			const component = events[i];
+			const { left, width } = layout[i];
+
+			const isConflictCourse =
+				highlightConflicts && conflictCourseIds.has(component.courseId);
 
 			const block = createCourseBlock(component, bucketColors, {
 				isConflict: isConflictCourse,
+				left: `${left}%`,
+				width: `${width}%`,
 			});
 			slotsContainer.appendChild(block);
 		}
 	}
 }
 
+/**
+ * Calculate layout for overlapping events in a day
+ * Returns array of { left, width } objects corresponding to input events array
+ */
+function layoutEventsForDay(events) {
+	// 1. Sort events by start time, then duration (longer first)
+	const sortedIndices = events
+		.map((_, i) => i)
+		.sort((a, b) => {
+			const startA = timeToMinutes(events[a].timeRange.start);
+			const startB = timeToMinutes(events[b].timeRange.start);
+			if (startA !== startB) return startA - startB;
+
+			const endA = timeToMinutes(events[a].timeRange.end);
+			const endB = timeToMinutes(events[b].timeRange.end);
+			return endB - startB - (endA - startA);
+		});
+
+	// 2. Build columns
+	const columns = [];
+	const eventColumnIndex = new Array(events.length).fill(0);
+
+	for (const eventIndex of sortedIndices) {
+		const event = events[eventIndex];
+		const start = timeToMinutes(event.timeRange.start);
+		const end = timeToMinutes(event.timeRange.end);
+
+		let placed = false;
+		for (let i = 0; i < columns.length; i++) {
+			const column = columns[i];
+			// Check if this column has space (last event ends before this one starts)
+			const lastEventIndex = column[column.length - 1];
+			const lastEventEnd = timeToMinutes(events[lastEventIndex].timeRange.end);
+
+			if (lastEventEnd <= start) {
+				column.push(eventIndex);
+				eventColumnIndex[eventIndex] = i;
+				placed = true;
+				break;
+			}
+		}
+
+		if (!placed) {
+			columns.push([eventIndex]);
+			eventColumnIndex[eventIndex] = columns.length - 1;
+		}
+	}
+
+	// 3. Calculate widths and positions
+	// This is a simplified "pack into columns" approach.
+	// For a more perfect "Google Calendar" style, we'd need to detect clusters.
+	// But simply dividing by total columns overlapping at that time is a good start.
+
+	const result = new Array(events.length);
+	const totalColumns = columns.length;
+
+	// Simple approach: width = 100% / totalColumns
+	// But we can do better: width = 100% / max_concurrent_at_this_time
+	// For now, let's stick to the column-based approach which guarantees no overlap visually
+	// but might make items thinner than necessary if they don't overlap with all columns.
+
+	// Refined approach: Find clusters of overlapping events
+	// Two events are in the same cluster if they overlap directly or indirectly.
+
+	// Let's use the simple column approach first as it's robust and easy to implement.
+	// We can refine to "expand if space available" later if needed.
+
+	// Actually, let's do a slightly smarter thing:
+	// For each event, find the maximum number of columns that exist during its time range.
+	// This is still hard without full clustering.
+
+	// Let's stick to: width = 100 / totalColumns in the cluster.
+	// Since we haven't implemented clustering, let's just use the max columns found for the whole day?
+	// No, that makes everything thin if there's one busy time.
+
+	// Let's implement simple clustering.
+	const clusters = [];
+	let currentCluster = [];
+	let clusterEnd = -1;
+
+	for (const eventIndex of sortedIndices) {
+		const event = events[eventIndex];
+		const start = timeToMinutes(event.timeRange.start);
+		const end = timeToMinutes(event.timeRange.end);
+
+		if (currentCluster.length === 0) {
+			currentCluster.push(eventIndex);
+			clusterEnd = end;
+		} else {
+			if (start < clusterEnd) {
+				currentCluster.push(eventIndex);
+				clusterEnd = Math.max(clusterEnd, end);
+			} else {
+				clusters.push(currentCluster);
+				currentCluster = [eventIndex];
+				clusterEnd = end;
+			}
+		}
+	}
+	if (currentCluster.length > 0) clusters.push(currentCluster);
+
+	// Process each cluster
+	for (const cluster of clusters) {
+		// Calculate columns just for this cluster
+		const clusterColumns = [];
+		const clusterEventColumn = {}; // eventIndex -> colIndex
+
+		for (const eventIndex of cluster) {
+			const event = events[eventIndex];
+			const start = timeToMinutes(event.timeRange.start);
+
+			let placed = false;
+			for (let i = 0; i < clusterColumns.length; i++) {
+				const lastEventIndex = clusterColumns[i][clusterColumns[i].length - 1];
+				const lastEventEnd = timeToMinutes(
+					events[lastEventIndex].timeRange.end
+				);
+
+				if (lastEventEnd <= start) {
+					clusterColumns[i].push(eventIndex);
+					clusterEventColumn[eventIndex] = i;
+					placed = true;
+					break;
+				}
+			}
+			if (!placed) {
+				clusterColumns.push([eventIndex]);
+				clusterEventColumn[eventIndex] = clusterColumns.length - 1;
+			}
+		}
+
+		const width = 100 / clusterColumns.length;
+		for (const eventIndex of cluster) {
+			const colIndex = clusterEventColumn[eventIndex];
+			result[eventIndex] = {
+				left: colIndex * width,
+				width: width,
+			};
+		}
+	}
+
+	return result;
+}
+
 function createCourseBlock(component, bucketColors, options = {}) {
-	const { isConflict = false } = options;
+	const { isConflict = false, left = "0%", width = "100%" } = options;
 	const block = document.createElement("div");
 	block.className = "course-block";
 	if (isConflict) {
@@ -576,6 +737,8 @@ function createCourseBlock(component, bucketColors, options = {}) {
 
 	block.style.top = `${(startOffset / 60) * HOUR_HEIGHT}px`;
 	block.style.height = `${(duration / 60) * HOUR_HEIGHT}px`;
+	block.style.left = left;
+	block.style.width = width;
 
 	const color = bucketColors[component.bucket] || "#57068c";
 	if (!isConflict) {

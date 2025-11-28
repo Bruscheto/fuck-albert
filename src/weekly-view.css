@@ -832,22 +832,24 @@ body {
 /* Course blocks */
 .course-block {
 	position: absolute;
-	left: 4px;
-	right: 4px;
-	background: var(--nyu-purple);
+	left: 0;
+	right: 0;
+	margin: 0 1px;
+	border-radius: 4px;
+	padding: 4px 6px;
 	color: white;
-	border-radius: 6px;
-	padding: 6px 8px;
 	font-size: 11px;
 	overflow: hidden;
-	cursor: pointer;
-	transition: transform 0.2s, box-shadow 0.2s;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	cursor: grab;
+	transition: box-shadow 0.2s, transform 0.1s, z-index 0s;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	z-index: 10;
 }
 
 .course-block:hover {
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 	transform: scale(1.02);
-	box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
 	z-index: 20;
 }
 
