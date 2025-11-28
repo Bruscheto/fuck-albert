@@ -72,10 +72,6 @@ The extension parses Albert's shopping cart using these selectors:
 python3 -c "from PIL import Image..."  # see assets/ generation
 ```
 
-## Keyboard Shortcuts
-
-- **Alt+Shift+P** — Open weekly schedule planner
-
 ## License
 
 MIT
