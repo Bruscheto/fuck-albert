@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Albert Course Planner</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div class="popup-container">
+        <header class="popup-header">
+            <div class="header-content">
+                <div class="header-top">
+                    <h1>Fuck Albert</h1>
+                    <span class="term-badge" id="term-badge">Loading...</span>
+                </div>
+                <div class="header-stats">
+                    <span id="stat-courses-count">0 Courses</span>
+                </div>
+            </div>
+            <button id="btn-weekly-view" class="btn-icon" title="Open Weekly View">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+            </button>
+        </header>
+
+        <section class="buckets-section">
+            <h2>Priority Buckets</h2>
+            <div id="buckets-container" class="buckets-container">
+                <!-- Buckets will be rendered here -->
+                <div class="loading">Loading courses...</div>
+            </div>
+        </section>
+
+        <section class="actions-section">
+            <button id="btn-fetch" class="btn-primary btn-fetch">
+                📥 Fetch from Albert
+            </button>
+        </section>
+
+        <section class="actions-section">
+            <button id="btn-export" class="btn-secondary">
+                📤 Export
+            </button>
+            <button id="btn-clear" class="btn-secondary btn-danger">
+                🗑️ Clear Courses
+            </button>
+        </section>
+
+        <footer class="popup-footer">
+            <a href="#" id="link-settings">Settings</a>
+            <span class="separator">•</span>
+            <a href="#" id="link-help">Help</a>
+        </footer>
+    </div>
+
+    <script src="popup.js" type="module"></script>
+</body>
+
+</html>

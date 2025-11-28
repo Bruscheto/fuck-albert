@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Schedule - Albert Course Planner</title>
+    <link rel="stylesheet" href="weekly-view.css">
+</head>
+
+<body>
+    <div class="weekly-container">
+        <header class="weekly-header">
+            <div class="header-left">
+                <h1>
+                    <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Weekly Schedule
+                </h1>
+                <span class="credits-badge" id="total-credits">0 Credits</span>
+            </div>
+            <div class="header-right">
+
+
+            </div>
+        </header>
+
+        <main class="weekly-main">
+            <aside class="sidebar">
+                <section class="sidebar-section">
+                    <div class="sidebar-section-header">
+                        <h3>Planning Tray</h3>
+                    </div>
+                    <div id="sidebar-planner" class="sidebar-planner">
+                        <p class="tray-empty">No courses added yet. Use the ＋ buttons or drag from buckets.</p>
+                    </div>
+                </section>
+
+                <section class="sidebar-section">
+                    <div class="sidebar-section-header">
+                        <h3>Buckets</h3>
+                        <div class="sidebar-actions">
+                            <button id="btn-add-bucket" class="btn-icon btn-success-icon" title="Add Bucket">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                            </button>
+                            <button id="btn-delete-bucket" class="btn-icon btn-danger-icon" title="Delete Buckets">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path
+                                        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                    </path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="sidebar-buckets" class="sidebar-buckets">
+                        <!-- Buckets will be rendered here -->
+                    </div>
+                </section>
+
+                <section class="sidebar-section">
+                    <h3>Conflicts</h3>
+                    <div id="sidebar-conflicts" class="sidebar-conflicts">
+                        <p class="no-conflicts">No conflicts detected</p>
+                    </div>
+                </section>
+
+                <section class="sidebar-section">
+                    <h3>Statistics</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value" id="stat-courses">0</span>
+                            <span class="stat-label">Courses</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="stat-hours">0</span>
+                            <span class="stat-label">Hours/Week</span>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+
+            <div class="calendar-container">
+                <div class="calendar-grid" id="calendar-grid">
+                    <!-- Time column -->
+                    <div class="time-column" id="time-column">
+                        <!-- Time labels will be generated -->
+                    </div>
+
+                    <!-- Day columns -->
+                    <div class="day-column" data-day="Mon">
+                        <div class="day-header">Monday</div>
+                        <div class="day-slots" id="slots-Mon"></div>
+                    </div>
+                    <div class="day-column" data-day="Tue">
+                        <div class="day-header">Tuesday</div>
+                        <div class="day-slots" id="slots-Tue"></div>
+                    </div>
+                    <div class="day-column" data-day="Wed">
+                        <div class="day-header">Wednesday</div>
+                        <div class="day-slots" id="slots-Wed"></div>
+                    </div>
+                    <div class="day-column" data-day="Thu">
+                        <div class="day-header">Thursday</div>
+                        <div class="day-slots" id="slots-Thu"></div>
+                    </div>
+                    <div class="day-column" data-day="Fri">
+                        <div class="day-header">Friday</div>
+                        <div class="day-slots" id="slots-Fri"></div>
+                    </div>
+
+                    <div class="calendar-drag-overlay">
+                        <div class="drag-overlay-content">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            <span>Drop to Add</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="calendar-empty-state" class="calendar-empty-state">
+                    <h3>Drag courses into the calendar</h3>
+                    <p>Use the bucket list to shortlist classes, then drag them here to test combinations.</p>
+                    <p class="calendar-empty-hint">Tip: drag a block back to unsorted to remove it from this view.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title">Modal Title</h3>
+                <button class="modal-close" id="modal-close">✕</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer" id="modal-footer">
+                <!-- Dynamic buttons -->
+            </div>
+        </div>
+    </div>
+
+    <script src="weekly-view.js" type="module"></script>
+</body>
+
+</html>

@@ -1,0 +1,163 @@
+:root {
+	--albert-planner-drawer-width: clamp(340px, 30vw, 420px);
+	--albert-planner-z: 2147483640;
+	--albert-panel-bg: #ffffff;
+	--albert-panel-border: rgba(15, 23, 42, 0.08);
+	--albert-panel-shadow: -20px 0 45px rgba(15, 23, 42, 0.25);
+}
+
+#albert-planner-drawer {
+	position: fixed;
+	top: 0;
+	right: 0;
+	width: var(--albert-planner-drawer-width);
+	height: 100vh;
+	background: transparent;
+	transform: translateX(calc(100% + 24px));
+	transition: transform 0.35s ease, box-shadow 0.35s ease;
+	z-index: var(--albert-planner-z);
+	pointer-events: none;
+}
+
+#albert-planner-drawer.is-open {
+	transform: translateX(0);
+	pointer-events: auto;
+}
+
+#albert-planner-drawer .albert-panel-shell {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	background: var(--albert-panel-bg);
+	border-left: 1px solid var(--albert-panel-border);
+	box-shadow: var(--albert-panel-shadow);
+	border-top-left-radius: 18px;
+	border-bottom-left-radius: 18px;
+}
+
+.albert-panel-chrome {
+	flex: 0 0 58px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 18px;
+	background: linear-gradient(90deg, #f8fafc, #ffffff);
+	border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.albert-panel-title-group {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.albert-panel-title {
+	font-size: 15px;
+	font-weight: 600;
+	color: #111827;
+}
+
+.albert-panel-subtitle {
+	font-size: 12px;
+	color: #6b7280;
+	letter-spacing: 0.02em;
+}
+
+.albert-panel-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.albert-panel-btn {
+	border: 1px solid rgba(15, 23, 42, 0.12);
+	background: #fff;
+	border-radius: 999px;
+	padding: 6px 14px;
+	font-size: 13px;
+	font-weight: 500;
+	color: #111827;
+	cursor: pointer;
+	transition: background 0.2s ease, border 0.2s ease;
+}
+
+.albert-panel-btn:hover {
+	background: #f4f4f5;
+	border-color: rgba(15, 23, 42, 0.2);
+}
+
+.albert-panel-btn-close {
+	background: #111827;
+	color: #fff;
+	border-color: #111827;
+}
+
+.albert-panel-btn-close:hover {
+	background: #000;
+	border-color: #000;
+}
+
+.albert-panel-frame {
+	flex: 1 1 auto;
+	position: relative;
+	overflow: hidden;
+	border-bottom-left-radius: 18px;
+}
+
+#albert-planner-drawer iframe {
+	width: 100%;
+	height: 100%;
+	border: none;
+	background: #f3f4f6;
+}
+
+#albert-planner-toggle {
+	position: fixed;
+	bottom: 30px;
+	right: 30px;
+	height: 48px;
+	padding: 0 24px;
+	background: #57068c;
+	color: white;
+	border-radius: 24px;
+	border: none;
+	box-shadow: 0 10px 25px -5px rgba(87, 6, 140, 0.5),
+		0 8px 10px -6px rgba(87, 6, 140, 0.1);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	z-index: 2147483647;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+		Arial, sans-serif;
+	transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s;
+}
+
+#albert-planner-toggle:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 20px 25px -5px rgba(87, 6, 140, 0.4),
+		0 10px 10px -5px rgba(87, 6, 140, 0.1);
+	background: #4c057a;
+}
+
+#albert-planner-toggle:active {
+	transform: translateY(0);
+	box-shadow: 0 5px 10px -2px rgba(87, 6, 140, 0.3);
+}
+
+#albert-planner-toggle span {
+	font-size: 15px;
+	font-weight: 600;
+	letter-spacing: 0.5px;
+}
+
+@media (max-width: 900px) {
+	:root {
+		--albert-planner-drawer-width: min(420px, 92vw);
+	}
+
+	#albert-planner-toggle.is-open {
+		right: 28px;
+		bottom: calc(28px + var(--albert-planner-drawer-width) * 0.02);
+	}
+}
