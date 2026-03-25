@@ -9,7 +9,8 @@
 			import(chrome.runtime.getURL("src/utils/constants.js")),
 		]);
 
-	const { getCourses, getBuckets, exportData } = courseStorage;
+	const { getCourses, getBuckets, getPlannerSelection, exportData } =
+		courseStorage;
 	const { analyzeSchedule } = plannerModule;
 	const { renderBuckets } = bucketModule;
 	const { CURRENT_TERM_NAME } = constantsModule;
@@ -25,11 +26,16 @@
 
 	const statCoursesCount = document.getElementById("stat-courses-count");
 	const bucketsContainer = document.getElementById("buckets-container");
+	const planningTrayContainer = document.getElementById(
+		"planning-tray-container"
+	);
 	const btnWeeklyView = document.getElementById("btn-weekly-view");
 	const btnFetch = document.getElementById("btn-fetch");
 	const btnExport = document.getElementById("btn-export");
 	const btnClear = document.getElementById("btn-clear");
-	const linkSettings = document.getElementById("link-settings");
+	const btnSettings = document.getElementById("btn-settings");
+	const settingsPanel = document.getElementById("settings-panel");
+	const btnCloseSettings = document.getElementById("btn-close-settings");
 	const linkHelp = document.getElementById("link-help");
 	const termBadge = document.getElementById("term-badge");
 
@@ -51,8 +57,13 @@
 				statCoursesCount.textContent = `${analysis.totalCourses} Courses`;
 			}
 
-			const courses = await getCourses();
-			const buckets = await getBuckets();
+			const [courses, buckets, plannerSelection] = await Promise.all([
+				getCourses(),
+				getBuckets(),
+				getPlannerSelection(),
+			]);
+
+			renderPlanningTray(courses, plannerSelection);
 
 			if (courses.length === 0) {
 				bucketsContainer.innerHTML = `
@@ -79,6 +90,36 @@
 		}
 	}
 
+	function renderPlanningTray(courses, plannerSelection) {
+		if (!planningTrayContainer) return;
+
+		const plannerSet = new Set(plannerSelection);
+		const plannedCourses = courses.filter((c) => plannerSet.has(c.id));
+
+		if (plannedCourses.length === 0) {
+			planningTrayContainer.innerHTML = `
+				<p class="empty-state-text-small">No courses in "About to Enroll". Add from buckets.</p>
+			`;
+			return;
+		}
+
+		planningTrayContainer.innerHTML = "";
+		const list = document.createElement("div");
+		list.className = "planning-list";
+
+		plannedCourses.forEach((course) => {
+			const item = document.createElement("div");
+			item.className = "planning-item";
+			item.innerHTML = `
+				<span class="planning-code">${course.courseCode}</span>
+				<span class="planning-title">${course.title}</span>
+			`;
+			list.appendChild(item);
+		});
+
+		planningTrayContainer.appendChild(list);
+	}
+
 	function setupEventListeners() {
 		btnWeeklyView.addEventListener("click", () => {
 			chrome.runtime.sendMessage({ type: "OPEN_WEEKLY_VIEW" });
@@ -88,9 +129,12 @@
 		btnExport.addEventListener("click", handleExport);
 		btnClear.addEventListener("click", handleClear);
 
-		linkSettings.addEventListener("click", (e) => {
-			e.preventDefault();
-			alert("Settings coming soon!");
+		btnSettings.addEventListener("click", () => {
+			settingsPanel.classList.remove("hidden");
+		});
+
+		btnCloseSettings.addEventListener("click", () => {
+			settingsPanel.classList.add("hidden");
 		});
 
 		linkHelp.addEventListener("click", (e) => {

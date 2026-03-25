@@ -31,13 +31,22 @@
             </button>
         </header>
 
-        <section class="buckets-section">
-            <h2>Priority Buckets</h2>
-            <div id="buckets-container" class="buckets-container">
-                <!-- Buckets will be rendered here -->
-                <div class="loading">Loading courses...</div>
-            </div>
-        </section>
+        <div class="scrollable-content">
+            <section class="planning-section">
+                <h2>About to Enroll</h2>
+                <div id="planning-tray-container" class="planning-tray-container">
+                    <div class="loading">Loading planned courses...</div>
+                </div>
+            </section>
+
+            <section class="buckets-section">
+                <h2>Priority Buckets</h2>
+                <div id="buckets-container" class="buckets-container">
+                    <!-- Buckets will be rendered here -->
+                    <div class="loading">Loading courses...</div>
+                </div>
+            </section>
+        </div>
 
         <section class="actions-section">
             <button id="btn-fetch" class="btn-primary btn-fetch">
@@ -55,10 +64,33 @@
         </section>
 
         <footer class="popup-footer">
-            <a href="#" id="link-settings">Settings</a>
+            <button id="btn-settings" class="link-button">Settings</button>
             <span class="separator">•</span>
-            <a href="#" id="link-help">Help</a>
+            <a href="#" id="link-help">Why?</a>
         </footer>
+
+        <div id="settings-panel" class="settings-panel hidden">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button id="btn-close-settings" class="btn-icon-small">✕</button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-item">
+                    <label for="setting-theme">Theme</label>
+                    <select id="setting-theme" class="setting-select">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="system">System</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label class="setting-toggle">
+                        <input type="checkbox" id="setting-notifications">
+                        <span class="toggle-label">Notifications</span>
+                    </label>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="popup.js" type="module"></script>

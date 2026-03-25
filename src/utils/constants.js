@@ -5,8 +5,8 @@
 // ============================================
 // Find the term code in Albert's page source or URL
 // Known: 1264 = Spring 2026
-export const CURRENT_TERM = "1264"; // <-- UPDATE THIS EACH SEMESTER
-export const CURRENT_TERM_NAME = "Spring 2026"; // <-- Human-readable name
+export const CURRENT_TERM = "1268"; // <-- UPDATE THIS EACH SEMESTER
+export const CURRENT_TERM_NAME = "Fall 2026"; // <-- Human-readable name
 // ============================================
 
 // Day abbreviation mapping - Albert uses 2-letter codes: Mo, Tu, We, Th, Fr, Sa, Su
@@ -56,3 +56,4 @@ export const CALENDAR_CONFIG = {
 
 // Add new term codes here as you discover them:
 // 1264 = Spring 2026
+// 1268 = Fall 2026
