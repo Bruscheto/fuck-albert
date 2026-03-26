@@ -22,6 +22,28 @@ const START_HOUR = CALENDAR_CONFIG.START_HOUR;
 const END_HOUR = CALENDAR_CONFIG.END_HOUR;
 const HOUR_HEIGHT = 60;
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const CONFLICT_COLOR_PALETTE = [
+	{ fill: "#c41e3a", border: "#a71931" },
+	{ fill: "#dc143c", border: "#bb1133" },
+	{ fill: "#b22222", border: "#971d1d" },
+	{ fill: "#e63946", border: "#c4303c" },
+	{ fill: "#a4161a", border: "#8b1316" },
+	{ fill: "#d32f2f", border: "#b32828" },
+];
+
+function buildConflictColorMap(conflictCourseIds) {
+	const orderedIds = Array.from(conflictCourseIds).sort((a, b) =>
+		String(a).localeCompare(String(b)),
+	);
+	const map = new Map();
+	orderedIds.forEach((courseId, index) => {
+		map.set(
+			courseId,
+			CONFLICT_COLOR_PALETTE[index % CONFLICT_COLOR_PALETTE.length],
+		);
+	});
+	return map;
+}
 
 // ============ DOM Elements ============
 
@@ -29,6 +51,7 @@ const timeColumn = document.getElementById("time-column");
 const calendarGrid = document.getElementById("calendar-grid");
 const calendarEmptyState = document.getElementById("calendar-empty-state");
 const sidebarPlanner = document.getElementById("sidebar-planner");
+const sidebarConflicts = document.getElementById("sidebar-conflicts");
 const totalCredits = document.getElementById("total-credits");
 const sidebarBuckets = document.getElementById("sidebar-buckets");
 const statCourses = document.getElementById("stat-courses");
@@ -125,7 +148,12 @@ async function init() {
 
 function generateTimeLabels() {
 	timeColumn.innerHTML = "";
-	for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
+
+	const spacer = document.createElement("div");
+	spacer.className = "time-header-spacer";
+	timeColumn.appendChild(spacer);
+
+	for (let hour = START_HOUR; hour < END_HOUR; hour++) {
 		const label = document.createElement("div");
 		label.className = "time-label";
 		const period = hour >= 12 ? "PM" : "AM";
@@ -162,7 +190,7 @@ async function loadSchedule() {
 		coursesById = new Map(courses.map((course) => [course.id, course]));
 		plannerSelectionSet = new Set(plannerSelection);
 		const plannedCourses = courses.filter((course) =>
-			plannerSelectionSet.has(course.id)
+			plannerSelectionSet.has(course.id),
 		);
 		const plannedSchedule = flattenToSchedule(plannedCourses);
 
@@ -172,13 +200,16 @@ async function loadSchedule() {
 		renderPlanningTray(plannedCourses, bucketMap);
 		renderBucketsSidebar(grouped, plannerSelectionSet);
 
-		const { conflictCourseIds } = calculatePlannerConflicts(
+		const { conflicts, conflictCourseIds } = calculatePlannerConflicts(
 			plannedCourses,
-			plannedSchedule
+			plannedSchedule,
 		);
+		const conflictColorMap = buildConflictColorMap(conflictCourseIds);
+		renderConflictsSidebar(conflicts, conflictColorMap);
 		renderCourseBlocks(plannedSchedule, buckets, {
-			highlightConflicts: false,
+			highlightConflicts: conflictCourseIds.size > 0,
 			conflictCourseIds,
+			conflictColorMap,
 		});
 		toggleCalendarEmptyState(plannedSchedule.length === 0);
 	} catch (error) {
@@ -235,7 +266,7 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 				deleteMode && isDeletable
 					? `<span class="bucket-delete-select ${
 							isSelectedForDelete ? "is-selected" : ""
-					  }">${isSelectedForDelete ? "✓" : ""}</span>`
+						}">${isSelectedForDelete ? "✓" : ""}</span>`
 					: ""
 			}
 			<div class="bucket-main">
@@ -402,7 +433,7 @@ function buildBucketGroups(courses, buckets) {
 	};
 
 	const orderedBuckets = [...buckets].sort(
-		(a, b) => (a.priority ?? 0) - (b.priority ?? 0)
+		(a, b) => (a.priority ?? 0) - (b.priority ?? 0),
 	);
 
 	for (const bucket of orderedBuckets) {
@@ -493,7 +524,7 @@ function updatePlannerStats(plannedCourses, plannedSchedule) {
 	const totalPlanned = plannedCourses.length;
 	const totalCreditsValue = plannedCourses.reduce(
 		(sum, course) => sum + (course.credits || 0),
-		0
+		0,
 	);
 	const weeklyHours = calculateWeeklyHours(plannedSchedule);
 	totalCredits.textContent = `${totalCreditsValue} Credits`;
@@ -531,9 +562,50 @@ function calculatePlannerConflicts(plannedCourses, plannedSchedule) {
 	return { conflicts: formatted, conflictCourseIds };
 }
 
+function renderConflictsSidebar(conflicts = [], conflictColorMap = new Map()) {
+	if (!sidebarConflicts) return;
+
+	if (!conflicts.length) {
+		sidebarConflicts.innerHTML =
+			'<p class="no-conflicts">No conflicts detected</p>';
+		return;
+	}
+
+	sidebarConflicts.innerHTML = "";
+
+	for (const entry of conflicts) {
+		const conflictItem = document.createElement("div");
+		conflictItem.className = "conflict-item";
+
+		const conflictColor = conflictColorMap.get(entry.course?.id);
+		if (conflictColor) {
+			conflictItem.style.setProperty("--conflict-fill", conflictColor.fill);
+			conflictItem.style.setProperty("--conflict-border", conflictColor.border);
+		}
+
+		const baseCode = entry.course?.courseCode || "Unknown course";
+		const conflictingCodes = entry.conflictsWith
+			.map((course) => course?.courseCode)
+			.filter(Boolean)
+			.filter((code, index, arr) => arr.indexOf(code) === index)
+			.join(", ");
+		const swatch = '<span class="conflict-swatch" aria-hidden="true"></span>';
+
+		conflictItem.innerHTML = conflictingCodes
+			? `${swatch}<div><strong>${baseCode}</strong><br>Conflicts with ${conflictingCodes}</div>`
+			: `${swatch}<div><strong>${baseCode}</strong><br>Has schedule conflicts</div>`;
+
+		sidebarConflicts.appendChild(conflictItem);
+	}
+}
+
 function renderCourseBlocks(schedule, buckets, options = {}) {
 	const bucketColors = {};
-	const { highlightConflicts = false, conflictCourseIds = new Set() } = options;
+	const {
+		highlightConflicts = false,
+		conflictCourseIds = new Set(),
+		conflictColorMap = new Map(),
+	} = options;
 	for (const bucket of buckets) {
 		bucketColors[bucket.id] = bucket.color;
 	}
@@ -565,6 +637,7 @@ function renderCourseBlocks(schedule, buckets, options = {}) {
 
 			const block = createCourseBlock(component, bucketColors, {
 				isConflict: isConflictCourse,
+				conflictColorMap,
 				left: `${left}%`,
 				width: `${width}%`,
 			});
@@ -688,7 +761,7 @@ function layoutEventsForDay(events) {
 			for (let i = 0; i < clusterColumns.length; i++) {
 				const lastEventIndex = clusterColumns[i][clusterColumns[i].length - 1];
 				const lastEventEnd = timeToMinutes(
-					events[lastEventIndex].timeRange.end
+					events[lastEventIndex].timeRange.end,
 				);
 
 				if (lastEventEnd <= start) {
@@ -718,7 +791,12 @@ function layoutEventsForDay(events) {
 }
 
 function createCourseBlock(component, bucketColors, options = {}) {
-	const { isConflict = false, left = "0%", width = "100%" } = options;
+	const {
+		isConflict = false,
+		conflictColorMap = new Map(),
+		left = "0%",
+		width = "100%",
+	} = options;
 	const block = document.createElement("div");
 	block.className = "course-block";
 	if (isConflict) {
@@ -744,16 +822,38 @@ function createCourseBlock(component, bucketColors, options = {}) {
 	if (!isConflict) {
 		block.style.backgroundColor = color;
 	} else {
-		block.dataset.bucketColor = color;
+		const conflictColor = conflictColorMap.get(component.courseId);
+		if (conflictColor) {
+			block.style.setProperty("--conflict-fill", conflictColor.fill);
+			block.style.setProperty("--conflict-border", conflictColor.border);
+		}
 	}
 
 	const startStr = formatTime(component.timeRange.start);
 	const endStr = formatTime(component.timeRange.end);
+	const conflictMarker =
+		'<button type="button" class="course-block-conflict-mark" aria-label="Remove course from schedule"><span class="course-block-conflict-glyph" aria-hidden="true">&times;</span></button>';
 	block.innerHTML = `
+    ${conflictMarker}
     <div class="course-block-code">${component.courseCode}</div>
     <div class="course-block-type">${component.type}</div>
     <div class="course-block-time">${startStr} - ${endStr}</div>
   `;
+
+	const removeButton = block.querySelector(".course-block-conflict-mark");
+	if (removeButton) {
+		removeButton.addEventListener("pointerdown", (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+		});
+
+		removeButton.addEventListener("click", async (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			await handlePlannerRemove(component.courseId);
+		});
+	}
+
 	block.title =
 		`${component.courseCode} - ${component.courseTitle}\n` +
 		`${component.type}\n` +
@@ -969,7 +1069,7 @@ async function handleBucketCreate() {
 	const buckets = await getBuckets();
 	const maxPriority = buckets.reduce(
 		(max, bucket) => Math.max(max, bucket.priority ?? 0),
-		0
+		0,
 	);
 
 	// Default color

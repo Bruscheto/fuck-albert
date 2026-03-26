@@ -13,6 +13,7 @@ console.log("[Albert Enhancer] Background service worker started");
 chrome.runtime.onInstalled.addListener(async (details) => {
 	console.log("[Albert Enhancer] Extension installed:", details.reason);
 	await initializeStorage();
+	await setupContextMenus();
 
 	if (hasSidePanelApi) {
 		try {
@@ -180,19 +181,48 @@ async function openSidePanel(tabId) {
 
 // ============ Context Menu ============
 
-chrome.runtime.onInstalled.addListener(() => {
-	chrome.contextMenus.create({
+function removeAllContextMenus() {
+	return new Promise((resolve) => {
+		chrome.contextMenus.removeAll(() => {
+			if (chrome.runtime.lastError) {
+				console.warn(
+					"[Albert Enhancer] Failed to clear context menus:",
+					chrome.runtime.lastError.message
+				);
+			}
+			resolve();
+		});
+	});
+}
+
+function createContextMenu(menuConfig) {
+	return new Promise((resolve) => {
+		chrome.contextMenus.create(menuConfig, () => {
+			if (chrome.runtime.lastError) {
+				console.error(
+					"[Albert Enhancer] Failed to create context menu:",
+					menuConfig.id,
+					chrome.runtime.lastError.message
+				);
+			}
+			resolve();
+		});
+	});
+}
+
+async function setupContextMenus() {
+	await removeAllContextMenus();
+	await createContextMenu({
 		id: "open-planner",
 		title: "Open Course Planner",
 		contexts: ["action"],
 	});
-
-	chrome.contextMenus.create({
+	await createContextMenu({
 		id: "clear-courses",
 		title: "Clear All Courses",
 		contexts: ["action"],
 	});
-});
+}
 
 chrome.contextMenus.onClicked.addListener(async (info) => {
 	switch (info.menuItemId) {

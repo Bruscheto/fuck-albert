@@ -41,7 +41,6 @@ albert-enhancer/
     ├── background.js       # Service worker (messages, context menu, commands)
     ├── content.js          # DOM observer, course detection, UI injection
     ├── content.css         # Injected styles
-    ├── course-parser.js    # Parse shopping cart table
     ├── course-storage.js   # chrome.storage.local CRUD
     ├── bucket-manager.js   # Bucket UI + drag-drop
     ├── planner.js          # Conflict detection, schedule optimization
@@ -57,8 +56,9 @@ albert-enhancer/
 
 The extension parses Albert's shopping cart using these selectors:
 
-- `tr.isSSS_ShCtPrim` — Primary course rows
-- `tr.isSSS_ShCtNonPrim` — Lecture/Recitation/Lab sub-components
+- `table.ps_grid-flex[title*="Shopping Cart"]` — Shopping cart table
+- `tr.ps_grid-row` — Course rows in the cart table
+- `div.ps_box-group.psc_layout` — Row layout wrapper for course fields
 - Day abbreviations: `M`, `T`, `W`, `Th`, `F` (parsed to `Mon`, `Tue`, etc.)
 - Time format: `09:30 AM -\n10:45 AM`
 

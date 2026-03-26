@@ -9,8 +9,13 @@
 			import(chrome.runtime.getURL("src/utils/constants.js")),
 		]);
 
-	const { getCourses, getBuckets, getPlannerSelection, exportData } =
-		courseStorage;
+	const {
+		getCourses,
+		getBuckets,
+		getPlannerSelection,
+		setPlannerSelection,
+		exportData,
+	} = courseStorage;
 	const { analyzeSchedule } = plannerModule;
 	const { renderBuckets } = bucketModule;
 	const { CURRENT_TERM_NAME } = constantsModule;
@@ -27,7 +32,7 @@
 	const statCoursesCount = document.getElementById("stat-courses-count");
 	const bucketsContainer = document.getElementById("buckets-container");
 	const planningTrayContainer = document.getElementById(
-		"planning-tray-container"
+		"planning-tray-container",
 	);
 	const btnWeeklyView = document.getElementById("btn-weekly-view");
 	const btnFetch = document.getElementById("btn-fetch");
@@ -160,9 +165,6 @@
 		btnFetch.textContent = "⏳ Fetching...";
 
 		try {
-			await chrome.storage.local.set({ courses: [] });
-			await loadData();
-
 			const [tab] = await chrome.tabs.query({
 				active: true,
 				currentWindow: true,
@@ -185,7 +187,7 @@
 				});
 			} catch (sendError) {
 				console.log(
-					"[Albert Enhancer] Content script not responding, trying to inject..."
+					"[Albert Enhancer] Content script not responding, trying to inject...",
 				);
 
 				try {
@@ -202,16 +204,27 @@
 				} catch (injectError) {
 					console.error(
 						"[Albert Enhancer] Failed to inject content script:",
-						injectError
+						injectError,
 					);
 					throw new Error(
-						"Could not access the page. Please refresh and try again."
+						"Could not access the page. Please refresh and try again.",
 					);
 				}
 			}
 
 			if (response?.courses && response.courses.length > 0) {
 				await chrome.storage.local.set({ courses: response.courses });
+
+				const fetchedCourseIds = new Set(response.courses.map((c) => c.id));
+				const currentPlannerSelection = await getPlannerSelection();
+				const validPlannerSelection = currentPlannerSelection.filter((id) =>
+					fetchedCourseIds.has(id),
+				);
+
+				if (validPlannerSelection.length !== currentPlannerSelection.length) {
+					await setPlannerSelection(validPlannerSelection);
+				}
+
 				btnFetch.textContent = `✅ Found ${response.courses.length} courses`;
 				await loadData();
 			} else {
@@ -220,7 +233,7 @@
 					response?.error || "No courses found in shopping cart.";
 				alert(
 					errorMsg +
-						"\n\nMake sure you're on the Shopping Cart page with courses added."
+						"\n\nMake sure you're on the Shopping Cart page with courses added.",
 				);
 			}
 		} catch (error) {
@@ -228,7 +241,7 @@
 			btnFetch.textContent = "❌ Fetch failed";
 			alert(
 				error.message ||
-					"Failed to fetch courses.\nMake sure you're on Albert's Shopping Cart page and try refreshing the page."
+					"Failed to fetch courses.\nMake sure you're on Albert's Shopping Cart page and try refreshing the page.",
 			);
 		} finally {
 			setTimeout(() => {

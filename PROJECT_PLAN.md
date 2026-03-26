@@ -162,7 +162,6 @@ albert-enhancer/
 │   ├── weekly-view.html       # Weekly calendar view page
 │   ├── weekly-view.js         # Weekly calendar logic
 │   ├── weekly-view.css        # Weekly calendar styling
-│   ├── course-parser.js       # Course data extraction logic
 │   ├── course-storage.js      # Data persistence layer
 │   ├── bucket-manager.js      # Bucket management logic
 │   ├── planner.js             # Auto-planner algorithm
