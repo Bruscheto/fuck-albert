@@ -43,6 +43,92 @@
 	const btnCloseSettings = document.getElementById("btn-close-settings");
 	const linkHelp = document.getElementById("link-help");
 	const termBadge = document.getElementById("term-badge");
+	let loadDataDebounceTimer = null;
+
+	function scheduleLoadData() {
+		if (loadDataDebounceTimer) {
+			clearTimeout(loadDataDebounceTimer);
+		}
+		loadDataDebounceTimer = setTimeout(() => {
+			loadDataDebounceTimer = null;
+			loadData();
+		}, 80);
+	}
+
+	function isNyuHost(urlString) {
+		if (!urlString) return false;
+		try {
+			const url = new URL(urlString);
+			return url.hostname === "nyu.edu" || url.hostname.endsWith(".nyu.edu");
+		} catch (error) {
+			return false;
+		}
+	}
+
+	function isValidCourseShape(course) {
+		if (!course || typeof course !== "object") return false;
+		if (typeof course.id !== "string" || !course.id.trim()) return false;
+		if (typeof course.courseCode !== "string" || !course.courseCode.trim()) {
+			return false;
+		}
+		if (typeof course.section !== "string" || !course.section.trim()) {
+			return false;
+		}
+		if (!Array.isArray(course.components)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	function assertValidParseResponse(response) {
+		if (!response || typeof response !== "object") {
+			throw new Error("Invalid response from Albert page parser.");
+		}
+
+		if (!Array.isArray(response.courses)) {
+			const reason =
+				typeof response.error === "string" && response.error.trim()
+					? response.error
+					: "Missing courses data from parser response.";
+			throw new Error(reason);
+		}
+
+		const invalidCourse = response.courses.find((course) => !isValidCourseShape(course));
+		if (invalidCourse) {
+			throw new Error("Parser returned malformed course data.");
+		}
+	}
+
+	function wait(ms) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	async function requestParseCart(tabId) {
+		return chrome.tabs.sendMessage(tabId, { type: "PARSE_CART" });
+	}
+
+	async function requestParseCartWithRetry(tabId, maxAttempts = 6) {
+		let lastError = null;
+
+		for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+			try {
+				const response = await requestParseCart(tabId);
+				if (response && typeof response === "object") {
+					return response;
+				}
+				lastError = new Error("Parser did not return a response.");
+			} catch (error) {
+				lastError = error;
+			}
+
+			if (attempt < maxAttempts) {
+				await wait(60 * attempt);
+			}
+		}
+
+		throw lastError || new Error("Unable to reach Albert parser content script.");
+	}
 
 	async function init() {
 		if (termBadge) {
@@ -155,7 +241,7 @@
 	function listenForUpdates() {
 		chrome.storage.onChanged.addListener((changes, namespace) => {
 			if (namespace === "local" && (changes.courses || changes.buckets)) {
-				loadData();
+				scheduleLoadData();
 			}
 		});
 	}
@@ -175,16 +261,17 @@
 				return;
 			}
 
-			if (!tab.url?.includes("nyu.edu")) {
+			if (!isNyuHost(tab.url)) {
 				alert("Please open Albert (sis.portal.nyu.edu) first, then try again.");
 				return;
 			}
 
 			let response;
 			try {
-				response = await chrome.tabs.sendMessage(tab.id, {
-					type: "PARSE_CART",
-				});
+				response = await requestParseCart(tab.id);
+				if (!response || typeof response !== "object") {
+					throw new Error("Parser did not return a response.");
+				}
 			} catch (sendError) {
 				console.log(
 					"[Albert Enhancer] Content script not responding, trying to inject...",
@@ -196,11 +283,7 @@
 						files: ["src/content.js"],
 					});
 
-					await new Promise((resolve) => setTimeout(resolve, 100));
-
-					response = await chrome.tabs.sendMessage(tab.id, {
-						type: "PARSE_CART",
-					});
+					response = await requestParseCartWithRetry(tab.id);
 				} catch (injectError) {
 					console.error(
 						"[Albert Enhancer] Failed to inject content script:",
@@ -212,7 +295,9 @@
 				}
 			}
 
-			if (response?.courses && response.courses.length > 0) {
+			assertValidParseResponse(response);
+
+			if (response.courses.length > 0) {
 				await chrome.storage.local.set({ courses: response.courses });
 
 				const fetchedCourseIds = new Set(response.courses.map((c) => c.id));
@@ -230,7 +315,7 @@
 			} else {
 				btnFetch.textContent = "❌ No courses found";
 				const errorMsg =
-					response?.error || "No courses found in shopping cart.";
+					response.error || "No courses found in shopping cart.";
 				alert(
 					errorMsg +
 						"\n\nMake sure you're on the Shopping Cart page with courses added.",

@@ -2,6 +2,129 @@
 
 import { STORAGE_KEYS, DEFAULT_BUCKETS } from "./utils/constants.js";
 
+const DEFAULT_SETTINGS = {
+	showWeekends: false,
+	startHour: 7,
+	endHour: 22,
+};
+
+function isPlainObject(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function assert(condition, message) {
+	if (!condition) {
+		throw new Error(message);
+	}
+}
+
+function validateTimeObject(time, context) {
+	if (time === null) {
+		return;
+	}
+	assert(isPlainObject(time), `${context} must be an object or null`);
+	assert(Number.isInteger(time.hours), `${context}.hours must be an integer`);
+	assert(
+		Number.isInteger(time.minutes),
+		`${context}.minutes must be an integer`
+	);
+	assert(time.hours >= 0 && time.hours <= 23, `${context}.hours out of range`);
+	assert(
+		time.minutes >= 0 && time.minutes <= 59,
+		`${context}.minutes out of range`
+	);
+}
+
+function validateTimeRange(timeRange, context) {
+	if (timeRange === null) {
+		return;
+	}
+	assert(isPlainObject(timeRange), `${context} must be an object or null`);
+	validateTimeObject(timeRange.start, `${context}.start`);
+	validateTimeObject(timeRange.end, `${context}.end`);
+	if (timeRange.start && timeRange.end) {
+		const startMinutes = timeRange.start.hours * 60 + timeRange.start.minutes;
+		const endMinutes = timeRange.end.hours * 60 + timeRange.end.minutes;
+		assert(endMinutes > startMinutes, `${context} end must be after start`);
+	}
+}
+
+function validateComponent(component, context) {
+	assert(isPlainObject(component), `${context} must be an object`);
+	assert(
+		typeof component.type === "string" && component.type.trim().length > 0,
+		`${context}.type is required`
+	);
+	assert(Array.isArray(component.days), `${context}.days must be an array`);
+	for (const day of component.days) {
+		assert(
+			typeof day === "string" && day.trim().length > 0,
+			`${context}.days must contain non-empty strings`
+		);
+	}
+	validateTimeRange(component.timeRange ?? null, `${context}.timeRange`);
+}
+
+function validateCourse(course) {
+	assert(isPlainObject(course), "Course must be an object");
+	assert(typeof course.id === "string" && course.id.trim(), "Course id is required");
+	assert(
+		typeof course.courseCode === "string" && course.courseCode.trim(),
+		"Course code is required"
+	);
+	assert(
+		typeof course.section === "string" && course.section.trim(),
+		"Course section is required"
+	);
+	assert(typeof course.title === "string", "Course title must be a string");
+	assert(
+		typeof course.credits === "number" && Number.isFinite(course.credits),
+		"Course credits must be a valid number"
+	);
+	assert(Array.isArray(course.components), "Course components must be an array");
+	for (let index = 0; index < course.components.length; index += 1) {
+		validateComponent(course.components[index], `Course component[${index}]`);
+	}
+	if (course.bucket !== null && course.bucket !== undefined) {
+		assert(
+			typeof course.bucket === "string" && course.bucket.trim().length > 0,
+			"Course bucket must be null or a non-empty string"
+		);
+	}
+
+	return course;
+}
+
+function validateBucket(bucket, context = "Bucket") {
+	assert(isPlainObject(bucket), `${context} must be an object`);
+	assert(typeof bucket.id === "string" && bucket.id.trim(), `${context} id is required`);
+	assert(
+		typeof bucket.name === "string" && bucket.name.trim(),
+		`${context} name is required`
+	);
+	assert(
+		typeof bucket.color === "string" && bucket.color.trim(),
+		`${context} color is required`
+	);
+	assert(
+		typeof bucket.priority === "number" && Number.isFinite(bucket.priority),
+		`${context} priority must be a valid number`
+	);
+
+	return bucket;
+}
+
+function validatePlannerSelection(courseIds) {
+	assert(Array.isArray(courseIds), "Planner selection must be an array");
+	for (const id of courseIds) {
+		assert(
+			typeof id === "string" && id.trim().length > 0,
+			"Planner selection entries must be non-empty strings"
+		);
+	}
+	return Array.from(new Set(courseIds));
+}
+
 /**
  * Initialize storage with defaults
  */
@@ -12,33 +135,26 @@ export async function initializeStorage() {
 		STORAGE_KEYS.SETTINGS,
 		STORAGE_KEYS.PLANNER_SELECTION,
 	]);
+	const pending = {};
 
-	if (!result[STORAGE_KEYS.BUCKETS]) {
-		await chrome.storage.local.set({
-			[STORAGE_KEYS.BUCKETS]: DEFAULT_BUCKETS,
-		});
+	if (!Array.isArray(result[STORAGE_KEYS.BUCKETS])) {
+		pending[STORAGE_KEYS.BUCKETS] = DEFAULT_BUCKETS;
 	}
 
-	if (!result[STORAGE_KEYS.COURSES]) {
-		await chrome.storage.local.set({
-			[STORAGE_KEYS.COURSES]: [],
-		});
+	if (!Array.isArray(result[STORAGE_KEYS.COURSES])) {
+		pending[STORAGE_KEYS.COURSES] = [];
 	}
 
-	if (!result[STORAGE_KEYS.SETTINGS]) {
-		await chrome.storage.local.set({
-			[STORAGE_KEYS.SETTINGS]: {
-				showWeekends: false,
-				startHour: 7,
-				endHour: 22,
-			},
-		});
+	if (!isPlainObject(result[STORAGE_KEYS.SETTINGS])) {
+		pending[STORAGE_KEYS.SETTINGS] = { ...DEFAULT_SETTINGS };
 	}
 
-	if (!result[STORAGE_KEYS.PLANNER_SELECTION]) {
-		await chrome.storage.local.set({
-			[STORAGE_KEYS.PLANNER_SELECTION]: [],
-		});
+	if (!Array.isArray(result[STORAGE_KEYS.PLANNER_SELECTION])) {
+		pending[STORAGE_KEYS.PLANNER_SELECTION] = [];
+	}
+
+	if (Object.keys(pending).length > 0) {
+		await chrome.storage.local.set(pending);
 	}
 }
 
@@ -50,7 +166,8 @@ export async function initializeStorage() {
  */
 export async function getCourses() {
 	const result = await chrome.storage.local.get(STORAGE_KEYS.COURSES);
-	return result[STORAGE_KEYS.COURSES] || [];
+	const courses = result[STORAGE_KEYS.COURSES];
+	return Array.isArray(courses) ? courses : [];
 }
 
 /**
@@ -58,6 +175,7 @@ export async function getCourses() {
  * @param {object} course
  */
 export async function saveCourse(course) {
+	validateCourse(course);
 	const courses = await getCourses();
 	const index = courses.findIndex((c) => c.id === course.id);
 
@@ -114,7 +232,8 @@ export async function getCoursesByBucket(bucketId) {
  */
 export async function getBuckets() {
 	const result = await chrome.storage.local.get(STORAGE_KEYS.BUCKETS);
-	return result[STORAGE_KEYS.BUCKETS] || DEFAULT_BUCKETS;
+	const buckets = result[STORAGE_KEYS.BUCKETS];
+	return Array.isArray(buckets) ? buckets : DEFAULT_BUCKETS;
 }
 
 /**
@@ -122,9 +241,24 @@ export async function getBuckets() {
  * @param {object} bucket - { name, color, priority }
  */
 export async function createBucket(bucket) {
+	assert(isPlainObject(bucket), "Bucket payload must be an object");
+	assert(
+		typeof bucket.name === "string" && bucket.name.trim(),
+		"Bucket name is required"
+	);
+	assert(
+		typeof bucket.color === "string" && bucket.color.trim(),
+		"Bucket color is required"
+	);
+	assert(
+		typeof bucket.priority === "number" && Number.isFinite(bucket.priority),
+		"Bucket priority must be a valid number"
+	);
+
 	const buckets = await getBuckets();
 	const id = `bucket-${Date.now()}`;
-	buckets.push({ id, ...bucket });
+	const nextBucket = validateBucket({ id, ...bucket });
+	buckets.push(nextBucket);
 	buckets.sort((a, b) => a.priority - b.priority);
 	await chrome.storage.local.set({ [STORAGE_KEYS.BUCKETS]: buckets });
 	return id;
@@ -136,10 +270,17 @@ export async function createBucket(bucket) {
  * @param {object} updates
  */
 export async function updateBucket(bucketId, updates) {
+	assert(
+		typeof bucketId === "string" && bucketId.trim(),
+		"Bucket id is required"
+	);
+	assert(isPlainObject(updates), "Bucket updates must be an object");
+
 	const buckets = await getBuckets();
 	const bucket = buckets.find((b) => b.id === bucketId);
 	if (bucket) {
-		Object.assign(bucket, updates);
+		const nextBucket = validateBucket({ ...bucket, ...updates });
+		Object.assign(bucket, nextBucket);
 		await chrome.storage.local.set({ [STORAGE_KEYS.BUCKETS]: buckets });
 	}
 }
@@ -149,31 +290,35 @@ export async function updateBucket(bucketId, updates) {
  * @param {string} bucketId
  */
 export async function deleteBucket(bucketId) {
-	// Remove bucket
-	const buckets = await getBuckets();
-	const filtered = buckets.filter((b) => b.id !== bucketId);
-	await chrome.storage.local.set({ [STORAGE_KEYS.BUCKETS]: filtered });
+	assert(
+		typeof bucketId === "string" && bucketId.trim(),
+		"Bucket id is required"
+	);
 
-	// Unassign courses from this bucket
-	const courses = await getCourses();
-	for (const course of courses) {
-		if (course.bucket === bucketId) {
-			course.bucket = null;
-		}
-	}
-	await chrome.storage.local.set({ [STORAGE_KEYS.COURSES]: courses });
+	const [buckets, courses] = await Promise.all([getBuckets(), getCourses()]);
+	const filteredBuckets = buckets.filter((b) => b.id !== bucketId);
+	const nextCourses = courses.map((course) =>
+		course.bucket === bucketId ? { ...course, bucket: null } : course
+	);
+
+	await chrome.storage.local.set({
+		[STORAGE_KEYS.BUCKETS]: filteredBuckets,
+		[STORAGE_KEYS.COURSES]: nextCourses,
+	});
 }
 
 // ============ Planner Selection Operations ============
 
 export async function getPlannerSelection() {
 	const result = await chrome.storage.local.get(STORAGE_KEYS.PLANNER_SELECTION);
-	return result[STORAGE_KEYS.PLANNER_SELECTION] || [];
+	const plannerSelection = result[STORAGE_KEYS.PLANNER_SELECTION];
+	return Array.isArray(plannerSelection) ? plannerSelection : [];
 }
 
 export async function setPlannerSelection(courseIds) {
+	const validated = validatePlannerSelection(courseIds);
 	await chrome.storage.local.set({
-		[STORAGE_KEYS.PLANNER_SELECTION]: Array.from(new Set(courseIds)),
+		[STORAGE_KEYS.PLANNER_SELECTION]: validated,
 	});
 }
 
@@ -235,11 +380,48 @@ export async function exportData() {
  * @param {object} backup
  */
 export async function importData(backup) {
+	if (!isPlainObject(backup)) {
+		throw new Error("Invalid backup format");
+	}
+
 	if (backup.version !== 1) {
 		throw new Error("Unsupported backup version");
 	}
+
+	if (!isPlainObject(backup.data)) {
+		throw new Error("Backup data payload must be an object");
+	}
+
+	const importedCourses = backup.data[STORAGE_KEYS.COURSES] || [];
+	const importedBuckets = backup.data[STORAGE_KEYS.BUCKETS] || DEFAULT_BUCKETS;
+	const importedSettings = backup.data[STORAGE_KEYS.SETTINGS] || {
+		...DEFAULT_SETTINGS,
+	};
+	const importedPlannerSelection =
+		backup.data[STORAGE_KEYS.PLANNER_SELECTION] || [];
+
+	assert(Array.isArray(importedCourses), "Imported courses must be an array");
+	for (let index = 0; index < importedCourses.length; index += 1) {
+		validateCourse(importedCourses[index]);
+	}
+
+	assert(Array.isArray(importedBuckets), "Imported buckets must be an array");
+	for (let index = 0; index < importedBuckets.length; index += 1) {
+		validateBucket(importedBuckets[index], `Bucket[${index}]`);
+	}
+
+	assert(isPlainObject(importedSettings), "Imported settings must be an object");
+	const normalizedPlannerSelection = validatePlannerSelection(
+		importedPlannerSelection
+	);
+
 	await chrome.storage.local.clear();
-	await chrome.storage.local.set(backup.data);
+	await chrome.storage.local.set({
+		[STORAGE_KEYS.COURSES]: importedCourses,
+		[STORAGE_KEYS.BUCKETS]: importedBuckets,
+		[STORAGE_KEYS.SETTINGS]: importedSettings,
+		[STORAGE_KEYS.PLANNER_SELECTION]: normalizedPlannerSelection,
+	});
 }
 
 /**

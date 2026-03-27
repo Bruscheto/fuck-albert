@@ -1,6 +1,47 @@
 // Time parsing utilities for Albert course times
 
-import { DAY_MAP, DAY_ABBREVS } from "./constants.js";
+import { DAY_MAP } from "./constants.js";
+
+const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function isValid24HourTime(hours, minutes) {
+	return (
+		Number.isInteger(hours) &&
+		Number.isInteger(minutes) &&
+		hours >= 0 &&
+		hours <= 23 &&
+		minutes >= 0 &&
+		minutes <= 59
+	);
+}
+
+function sortDays(days) {
+	return days.sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
+}
+
+function parseDayCodes(input, mapping, orderedCodes) {
+	const days = [];
+	let remaining = input;
+
+	while (remaining.length > 0) {
+		let matchedCode = null;
+		for (const code of orderedCodes) {
+			if (remaining.startsWith(code)) {
+				matchedCode = code;
+				break;
+			}
+		}
+
+		if (!matchedCode) {
+			return { days: [], remaining };
+		}
+
+		days.push(mapping[matchedCode]);
+		remaining = remaining.slice(matchedCode.length);
+	}
+
+	return { days, remaining: "" };
+}
 
 /**
  * Parse a time string from Albert
@@ -12,25 +53,37 @@ import { DAY_MAP, DAY_ABBREVS } from "./constants.js";
  */
 export function parseTime(timeStr) {
 	if (!timeStr || timeStr.toUpperCase().includes("TBA")) return null;
+	const normalized = timeStr.trim();
 
 	// Try 12-hour format first: "09:30 AM"
-	const match12 = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+	const match12 = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
 	if (match12) {
 		let hours = parseInt(match12[1], 10);
 		const minutes = parseInt(match12[2], 10);
 		const period = match12[3].toUpperCase();
 
+		if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+			return null;
+		}
+
 		if (period === "PM" && hours !== 12) hours += 12;
 		if (period === "AM" && hours === 12) hours = 0;
+
+		if (!isValid24HourTime(hours, minutes)) {
+			return null;
+		}
 
 		return { hours, minutes };
 	}
 
 	// Try 24-hour format: "09:30" or "14:00"
-	const match24 = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
+	const match24 = normalized.match(/^(\d{1,2}):(\d{2})$/);
 	if (match24) {
 		const hours = parseInt(match24[1], 10);
 		const minutes = parseInt(match24[2], 10);
+		if (!isValid24HourTime(hours, minutes)) {
+			return null;
+		}
 		return { hours, minutes };
 	}
 
@@ -56,6 +109,12 @@ export function parseTimeRange(rangeStr) {
 
 	if (!start || !end) return null;
 
+	const startMinutes = timeToMinutes(start);
+	const endMinutes = timeToMinutes(end);
+	if (endMinutes <= startMinutes) {
+		return null;
+	}
+
 	return { start, end };
 }
 
@@ -68,55 +127,48 @@ export function parseTimeRange(rangeStr) {
  */
 export function parseDays(dayStr) {
 	if (!dayStr || dayStr.toUpperCase().includes("TBA")) return [];
+	const normalized = dayStr.replace(/\s+/g, "").trim();
+	if (!normalized) return [];
 
-	const days = [];
-	let remaining = dayStr.trim();
-
-	// New format: 2-letter codes (Mo, Tu, We, Th, Fr, Sa, Su)
-	// Must check these first before falling back to old format
 	const newFormatAbbrevs = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-	let usedNewFormat = false;
-
-	for (const abbrev of newFormatAbbrevs) {
-		if (remaining.includes(abbrev)) {
-			usedNewFormat = true;
-			while (remaining.includes(abbrev)) {
-				remaining = remaining.replace(abbrev, "");
-				days.push(DAY_MAP[abbrev]);
-			}
-		}
+	const parsedNewFormat = parseDayCodes(normalized, DAY_MAP, newFormatAbbrevs);
+	if (parsedNewFormat.days.length > 0 && parsedNewFormat.remaining.length === 0) {
+		return sortDays(parsedNewFormat.days);
 	}
 
-	// If new format found days, return them
-	if (usedNewFormat && days.length > 0) {
-		const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-		return days.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
-	}
-
-	// Fallback to old format: single-letter codes (M, T, W, Th, F, S, Su)
-	// Order matters: check 'Th' before 'T', 'Su' before 'S'
-	remaining = dayStr.trim();
 	const oldDAY_MAP = {
+		Th: "Thu",
+		Su: "Sun",
 		M: "Mon",
 		T: "Tue",
 		W: "Wed",
-		Th: "Thu",
 		F: "Fri",
 		S: "Sat",
-		Su: "Sun",
 	};
-	const orderedAbbrevs = ["Th", "Su", "M", "T", "W", "F", "S"];
+	const orderedOldCodes = ["Th", "Su", "M", "T", "W", "F", "S"];
+	const parsedOldFormat = parseDayCodes(normalized, oldDAY_MAP, orderedOldCodes);
+	if (parsedOldFormat.days.length > 0 && parsedOldFormat.remaining.length === 0) {
+		return sortDays(parsedOldFormat.days);
+	}
 
-	for (const abbrev of orderedAbbrevs) {
-		while (remaining.includes(abbrev)) {
-			remaining = remaining.replace(abbrev, "");
-			days.push(oldDAY_MAP[abbrev]);
+	const fallbackDays = [];
+	for (const abbrev of newFormatAbbrevs) {
+		const regex = new RegExp(abbrev, "g");
+		const count = (normalized.match(regex) || []).length;
+		for (let i = 0; i < count; i += 1) {
+			fallbackDays.push(DAY_MAP[abbrev]);
 		}
 	}
 
-	// Sort by day order (Mon -> Sun)
-	const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-	return days.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+	if (fallbackDays.length > 0) {
+		console.warn(
+			`[Albert Enhancer] Parsed partial day string "${dayStr}"; continuing with recognized days only`
+		);
+		return sortDays(fallbackDays);
+	}
+
+	console.warn(`[Albert Enhancer] Unable to parse day string "${dayStr}"`);
+	return [];
 }
 
 /**

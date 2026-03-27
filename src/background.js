@@ -9,11 +9,43 @@ const hasSidePanelApi = Boolean(chrome.sidePanel);
 
 console.log("[Albert Enhancer] Background service worker started");
 
+function isNonEmptyString(value) {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+function isValidCoursePayload(course) {
+	if (!course || typeof course !== "object") {
+		return false;
+	}
+
+	return (
+		isNonEmptyString(course.id) &&
+		isNonEmptyString(course.courseCode) &&
+		isNonEmptyString(course.section) &&
+		Array.isArray(course.components)
+	);
+}
+
+function isBenignTabsError(error) {
+	if (!error?.message) {
+		return false;
+	}
+	return (
+		error.message.includes("No tab with id") ||
+		error.message.includes("Tabs cannot be edited") ||
+		error.message.includes("Tab was closed")
+	);
+}
+
 // Initialize storage on install
 chrome.runtime.onInstalled.addListener(async (details) => {
 	console.log("[Albert Enhancer] Extension installed:", details.reason);
-	await initializeStorage();
-	await setupContextMenus();
+	try {
+		await initializeStorage();
+		await setupContextMenus();
+	} catch (error) {
+		console.error("[Albert Enhancer] Install initialization failed:", error);
+	}
 
 	if (hasSidePanelApi) {
 		try {
@@ -33,33 +65,59 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 	}
 });
 
+chrome.runtime.onStartup.addListener(async () => {
+	try {
+		await initializeStorage();
+		await setupContextMenus();
+	} catch (error) {
+		console.error("[Albert Enhancer] Startup initialization failed:", error);
+	}
+});
+
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+	if (!message || typeof message.type !== "string") {
+		return false;
+	}
+
 	console.log("[Albert Enhancer] Message received:", message.type);
 
 	switch (message.type) {
 		case "COURSES_PARSED":
 			// Content script parsed the shopping cart - save to storage
-			handleCoursesParsed(message.courses, sender.tab);
+			handleCoursesParsed(message.courses, sender.tab).catch((error) => {
+				console.error("[Albert Enhancer] Failed to persist parsed courses:", error);
+			});
 			break;
 
 		case "OPEN_PLANNER":
-			openPlannerPage();
+			openPlannerPage().catch((error) => {
+				console.error("[Albert Enhancer] Failed to open planner page:", error);
+			});
 			break;
 
 		case "OPEN_WEEKLY_VIEW":
-			openWeeklyView();
+			openWeeklyView().catch((error) => {
+				console.error("[Albert Enhancer] Failed to open weekly view:", error);
+			});
 			break;
 
 		case "OPEN_SIDE_PANEL":
 			if (sender.tab?.id) {
-				openSidePanel(sender.tab.id);
+				openSidePanel(sender.tab.id).catch((error) => {
+					console.error("[Albert Enhancer] Failed to open side panel:", error);
+				});
 			}
 			break;
 
 		case "GET_COURSES":
 			// Return courses to requester
-			handleGetCourses().then(sendResponse);
+			handleGetCourses()
+				.then((courses) => sendResponse(courses))
+				.catch((error) => {
+					console.error("[Albert Enhancer] Failed to get courses:", error);
+					sendResponse([]);
+				});
 			return true; // Keep channel open for async response
 
 		default:
@@ -71,7 +129,14 @@ if (hasSidePanelApi) {
 	chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 		const nextUrl = changeInfo.url || tab?.url;
 		if (nextUrl) {
-			configureSidePanelForTab(tabId, nextUrl);
+			configureSidePanelForTab(tabId, nextUrl).catch((error) => {
+				if (!isBenignTabsError(error)) {
+					console.error(
+						"[Albert Enhancer] Failed to configure side panel on tab update:",
+						error
+					);
+				}
+			});
 		}
 	});
 
@@ -80,10 +145,12 @@ if (hasSidePanelApi) {
 			const tab = await chrome.tabs.get(tabId);
 			await configureSidePanelForTab(tabId, tab.url);
 		} catch (error) {
-			console.error(
-				"[Albert Enhancer] Failed to handle tab activation:",
-				error
-			);
+			if (!isBenignTabsError(error)) {
+				console.error(
+					"[Albert Enhancer] Failed to handle tab activation:",
+					error
+				);
+			}
 		}
 	});
 }
@@ -91,22 +158,35 @@ if (hasSidePanelApi) {
 // ============ Message Handlers ============
 
 async function handleCoursesParsed(courses, tab) {
+	if (!Array.isArray(courses)) {
+		throw new Error("Parsed courses payload must be an array");
+	}
+
+	const filteredCourses = courses.filter(isValidCoursePayload);
+	if (filteredCourses.length !== courses.length) {
+		throw new Error("Parsed courses payload contains invalid course objects");
+	}
+
 	// Save parsed courses to storage
-	await chrome.storage.local.set({ courses: courses });
-	console.log("[Albert Enhancer] Saved", courses.length, "courses to storage");
+	await chrome.storage.local.set({ courses: filteredCourses });
+	console.log(
+		"[Albert Enhancer] Saved",
+		filteredCourses.length,
+		"courses to storage"
+	);
 
 	// Update badge with course count
-	if (courses && courses.length > 0) {
-		chrome.action.setBadgeText({
-			text: courses.length.toString(),
+	if (filteredCourses.length > 0) {
+		await chrome.action.setBadgeText({
+			text: filteredCourses.length.toString(),
 			tabId: tab?.id,
 		});
-		chrome.action.setBadgeBackgroundColor({
+		await chrome.action.setBadgeBackgroundColor({
 			color: "#57068c",
 			tabId: tab?.id,
 		});
 	} else {
-		chrome.action.setBadgeText({
+		await chrome.action.setBadgeText({
 			text: "",
 			tabId: tab?.id,
 		});
@@ -118,14 +198,14 @@ async function handleGetCourses() {
 	return result.courses || [];
 }
 
-function openPlannerPage() {
-	chrome.tabs.create({
+async function openPlannerPage() {
+	await chrome.tabs.create({
 		url: chrome.runtime.getURL(WEEKLY_VIEW_PATH),
 	});
 }
 
-function openWeeklyView() {
-	chrome.tabs.create({
+async function openWeeklyView() {
+	await chrome.tabs.create({
 		url: chrome.runtime.getURL(WEEKLY_VIEW_PATH),
 	});
 }
@@ -227,7 +307,7 @@ async function setupContextMenus() {
 chrome.contextMenus.onClicked.addListener(async (info) => {
 	switch (info.menuItemId) {
 		case "open-planner":
-			openPlannerPage();
+			await openPlannerPage();
 			break;
 
 		case "clear-courses":

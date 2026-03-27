@@ -41,6 +41,7 @@ const DRAWER_IDS = {
 };
 
 let drawerInitialized = false;
+let contextInvalidatedNotified = false;
 
 function logAvailableTables() {
 	const tables = Array.from(document.querySelectorAll("table"));
@@ -102,13 +103,18 @@ function findCartTable() {
  */
 function parseTime(timeStr) {
 	if (!timeStr) return null;
+	const normalized = timeStr.trim();
 
 	// Try 12-hour format first: "09:30 AM"
-	const match12 = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+	const match12 = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
 	if (match12) {
 		let hours = parseInt(match12[1], 10);
 		const minutes = parseInt(match12[2], 10);
 		const period = match12[3].toUpperCase();
+
+		if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+			return null;
+		}
 
 		if (period === "PM" && hours !== 12) hours += 12;
 		if (period === "AM" && hours === 12) hours = 0;
@@ -117,10 +123,13 @@ function parseTime(timeStr) {
 	}
 
 	// Try 24-hour format: "09:30" or "14:00"
-	const match24 = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
+	const match24 = normalized.match(/^(\d{1,2}):(\d{2})$/);
 	if (match24) {
 		const hours = parseInt(match24[1], 10);
 		const minutes = parseInt(match24[2], 10);
+		if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+			return null;
+		}
 		return { hours, minutes };
 	}
 
@@ -165,11 +174,15 @@ function parseDaysAndTime(daysTimesStr) {
 	// Parse time range
 	const start = parseTime(startStr);
 	const end = parseTime(endStr);
+	const hasValidRange =
+		start &&
+		end &&
+		start.hours * 60 + start.minutes < end.hours * 60 + end.minutes;
 
 	return {
 		days,
-		timeRange: start && end ? { start, end } : null,
-		isTBA: false,
+		timeRange: hasValidRange ? { start, end } : null,
+		isTBA: !hasValidRange,
 	};
 }
 
@@ -178,14 +191,31 @@ function parseDaysAndTime(daysTimesStr) {
  * e.g., "Class Code:CORE-UA 203-010 (15133)" -> { code: "CORE-UA 203", section: "010", classNumber: "15133" }
  */
 function parseClassCode(linkText) {
+	if (!linkText || typeof linkText !== "string") {
+		return null;
+	}
+
 	// Format: "Class Code:DEPT-LEVEL NUM-SECTION (classNumber)"
-	const match = linkText.match(
-		/Class Code:([A-Z]+-[A-Z]+\s+\d+)-(\d+)\s*\((\d+)\)/
-	);
-	if (!match) return null;
+	const patterns = [
+		/Class Code:\s*([A-Z\-]+\s+\d+)-(\d+)\s*\((\d+)\)/i,
+		/Class Code:\s*([^()]+?)\s*-\s*(\d+)\s*\((\d+)\)/i,
+	];
+
+	let match = null;
+	for (const pattern of patterns) {
+		const candidate = linkText.match(pattern);
+		if (candidate) {
+			match = candidate;
+			break;
+		}
+	}
+
+	if (!match) {
+		return null;
+	}
 
 	return {
-		code: match[1], // e.g., "CORE-UA 203"
+		code: match[1].trim(), // e.g., "CORE-UA 203"
 		section: match[2], // e.g., "010"
 		classNumber: match[3], // e.g., "15133"
 	};
@@ -366,29 +396,43 @@ function parseShoppingCart(existingTable = null) {
 // ============ Message Listener ============
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-	if (message.type === "PARSE_CART") {
-		if (!/NYU_SSENRL_CART/i.test(window.location.href)) {
-			debugLog(
-				"Skipping parse request in non-cart frame",
-				window.location.href
-			);
+	if (message?.type !== "PARSE_CART") {
+		return false;
+	}
+
+	try {
+		const isLikelyCartUrl = /NYU_SSENRL_CART/i.test(window.location.href);
+		const cartTable = findCartTable();
+
+		if (!cartTable && !isLikelyCartUrl) {
+			debugLog("Skipping parse request in non-cart frame", window.location.href);
+			// Let other frames respond.
+			return false;
+		}
+
+		if (!cartTable) {
+			debugLog("No shopping cart found in this frame yet; logging tables");
+			logAvailableTables();
+			sendResponse({
+				courses: [],
+				error: "Shopping cart table not found on this page.",
+			});
 			return false;
 		}
 
 		debugLog("Parse request received in frame", window.location.href);
-
-		const cartTable = findCartTable();
-		if (!cartTable) {
-			debugLog("No shopping cart found in this frame yet; logging tables");
-			logAvailableTables();
-			return false;
-		}
-
 		const courses = parseShoppingCart(cartTable);
 		debugLog("Parsed", courses.length, "courses", courses);
 		sendResponse({ courses });
+	} catch (error) {
+		console.error("[Albert Enhancer] Parse cart failed:", error);
+		sendResponse({
+			courses: [],
+			error: "Failed to parse shopping cart.",
+		});
 	}
-	return true;
+
+	return false;
 });
 
 // ============ Drawer Panel Injection ============
@@ -445,9 +489,76 @@ function initPlannerDrawer() {
 }
 
 function requestChromeSidePanelOpen() {
+	const toggle = document.getElementById(DRAWER_IDS.toggle);
+
+	const markContextInvalidated = () => {
+		if (toggle) {
+			toggle.disabled = true;
+			toggle.style.opacity = "0.65";
+			toggle.style.cursor = "not-allowed";
+			toggle.setAttribute(
+				"title",
+				"Extension was reloaded. Refresh this page to re-enable the planner toggle."
+			);
+			toggle.setAttribute("aria-label", "Refresh page to re-enable planner");
+			const label = toggle.querySelector("span");
+			if (label) {
+				label.textContent = "Refresh Page";
+			}
+		}
+
+		if (!contextInvalidatedNotified) {
+			contextInvalidatedNotified = true;
+			console.info(
+				"[Albert Enhancer] Extension context invalidated. Refresh the page to reconnect planner controls."
+			);
+		}
+	};
+
+	const isContextInvalidatedError = (errorLike) => {
+		const message = errorLike?.message || String(errorLike || "");
+		return message.toLowerCase().includes("extension context invalidated");
+	};
+
+	const isNoResponsePortClosedError = (errorLike) => {
+		const message = (errorLike?.message || String(errorLike || "")).toLowerCase();
+		return message.includes(
+			"the message port closed before a response was received"
+		);
+	};
+
+	if (!chrome?.runtime?.id) {
+		markContextInvalidated();
+		return;
+	}
+
 	try {
-		chrome.runtime.sendMessage({ type: "OPEN_SIDE_PANEL" });
+		chrome.runtime.sendMessage({ type: "OPEN_SIDE_PANEL" }, () => {
+			if (!chrome.runtime.lastError) {
+				return;
+			}
+
+			if (isContextInvalidatedError(chrome.runtime.lastError)) {
+				markContextInvalidated();
+				return;
+			}
+
+			if (isNoResponsePortClosedError(chrome.runtime.lastError)) {
+				// OPEN_SIDE_PANEL is a fire-and-forget message; no response is expected.
+				return;
+			}
+
+			console.warn(
+				"[Albert Enhancer] Failed to request side panel open",
+				chrome.runtime.lastError.message
+			);
+		});
 	} catch (error) {
+		if (isContextInvalidatedError(error)) {
+			markContextInvalidated();
+			return;
+		}
+
 		console.warn("[Albert Enhancer] Failed to request side panel open", error);
 	}
 }
