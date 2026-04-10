@@ -1,9 +1,7 @@
 // Bucket management and drag-drop handling
 
 import {
-	getBuckets,
 	assignCourseToBucket,
-	getCoursesByBucket,
 } from "./course-storage.js";
 import { formatTime } from "./utils/time-parser.js";
 
@@ -12,13 +10,14 @@ import { formatTime } from "./utils/time-parser.js";
  * @param {HTMLElement} container
  * @param {object[]} buckets
  * @param {object[]} courses
+ * @param {object} options
  */
-export function renderBuckets(container, buckets, courses) {
+export function renderBuckets(container, buckets, courses, options = {}) {
 	container.innerHTML = "";
 
 	for (const bucket of buckets) {
 		const bucketCourses = courses.filter((c) => c.bucket === bucket.id);
-		const bucketEl = createBucketElement(bucket, bucketCourses);
+		const bucketEl = createBucketElement(bucket, bucketCourses, options);
 		container.appendChild(bucketEl);
 	}
 
@@ -31,7 +30,7 @@ export function renderBuckets(container, buckets, courses) {
 			color: "#9ca3af",
 			priority: 999,
 		};
-		const bucketEl = createBucketElement(unsortedBucket, unsortedCourses);
+		const bucketEl = createBucketElement(unsortedBucket, unsortedCourses, options);
 		container.appendChild(bucketEl);
 	}
 }
@@ -40,9 +39,10 @@ export function renderBuckets(container, buckets, courses) {
  * Create a bucket element with its courses
  * @param {object} bucket
  * @param {object[]} courses
+ * @param {object} options
  * @returns {HTMLElement}
  */
-function createBucketElement(bucket, courses) {
+function createBucketElement(bucket, courses, options = {}) {
 	const div = document.createElement("div");
 	div.className = "bucket";
 	div.dataset.bucketId = bucket.id || "unsorted";
@@ -66,7 +66,7 @@ function createBucketElement(bucket, courses) {
 	list.addEventListener("drop", (e) => handleDrop(e, bucket.id));
 
 	for (const course of courses) {
-		const courseEl = createCourseElement(course);
+		const courseEl = createCourseElement(course, options);
 		list.appendChild(courseEl);
 	}
 
@@ -77,9 +77,11 @@ function createBucketElement(bucket, courses) {
 /**
  * Create a draggable course element
  * @param {object} course
+ * @param {object} options
  * @returns {HTMLElement}
  */
-function createCourseElement(course) {
+function createCourseElement(course, options = {}) {
+	const { onEditCourse } = options;
 	const div = document.createElement("div");
 	div.className = "course-item";
 	div.draggable = true;
@@ -96,11 +98,14 @@ function createCourseElement(course) {
 	div.innerHTML = `
 		<div class="course-card-header">
 			<div class="course-code">${course.courseCode}</div>
-			${
-				hasRecitation
-					? '<span class="course-badge course-badge-recitation">R</span>'
-					: ""
-			}
+			<div class="course-card-actions">
+				${
+					hasRecitation
+						? '<span class="course-badge course-badge-recitation">R</span>'
+						: ""
+				}
+				<button type="button" class="course-card-edit" aria-label="Edit course metadata" title="Edit course metadata">✏️</button>
+			</div>
 		</div>
 		<div class="course-title" title="${course.title}">${course.title}</div>
 		<div class="course-time">${timeLabel}</div>
@@ -112,6 +117,16 @@ function createCourseElement(course) {
 
 	div.addEventListener("dragstart", handleDragStart);
 	div.addEventListener("dragend", handleDragEnd);
+
+	const editButton = div.querySelector(".course-card-edit");
+	editButton?.addEventListener("click", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		onEditCourse?.(course.id);
+	});
+	editButton?.addEventListener("pointerdown", (event) => {
+		event.stopPropagation();
+	});
 
 	return div;
 }

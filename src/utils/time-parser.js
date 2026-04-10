@@ -132,7 +132,10 @@ export function parseDays(dayStr) {
 
 	const newFormatAbbrevs = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 	const parsedNewFormat = parseDayCodes(normalized, DAY_MAP, newFormatAbbrevs);
-	if (parsedNewFormat.days.length > 0 && parsedNewFormat.remaining.length === 0) {
+	if (
+		parsedNewFormat.days.length > 0 &&
+		parsedNewFormat.remaining.length === 0
+	) {
 		return sortDays(parsedNewFormat.days);
 	}
 
@@ -146,8 +149,15 @@ export function parseDays(dayStr) {
 		S: "Sat",
 	};
 	const orderedOldCodes = ["Th", "Su", "M", "T", "W", "F", "S"];
-	const parsedOldFormat = parseDayCodes(normalized, oldDAY_MAP, orderedOldCodes);
-	if (parsedOldFormat.days.length > 0 && parsedOldFormat.remaining.length === 0) {
+	const parsedOldFormat = parseDayCodes(
+		normalized,
+		oldDAY_MAP,
+		orderedOldCodes,
+	);
+	if (
+		parsedOldFormat.days.length > 0 &&
+		parsedOldFormat.remaining.length === 0
+	) {
 		return sortDays(parsedOldFormat.days);
 	}
 
@@ -162,7 +172,7 @@ export function parseDays(dayStr) {
 
 	if (fallbackDays.length > 0) {
 		console.warn(
-			`[Albert Enhancer] Parsed partial day string "${dayStr}"; continuing with recognized days only`
+			`[Albert Enhancer] Parsed partial day string "${dayStr}"; continuing with recognized days only`,
 		);
 		return sortDays(fallbackDays);
 	}

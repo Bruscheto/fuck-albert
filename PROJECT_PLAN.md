@@ -476,7 +476,6 @@ function hasConflict(course1, course2) {
    - Courses load asynchronously
    - Solution: MutationObserver with debouncing
 3. **Time Parsing**:
-
    - Various time formats ("10AM", "10:00 AM", "10:00AM-11:50AM")
    - Solution: Comprehensive time parser with multiple format support
 
@@ -505,21 +504,18 @@ function hasConflict(course1, course2) {
 ## Future Enhancements
 
 1. **Integration Features**:
-
    - Export to Google Calendar
    - Export to iCal format
    - Share schedules with friends
    - Rate My Professor integration
 
 2. **Advanced Planning**:
-
    - Multi-semester planning
    - Graduation requirement tracking
    - Prerequisite checking
    - Degree progress visualization
 
 3. **Notifications**:
-
    - Course availability alerts
    - Registration window reminders
    - Waitlist status updates
@@ -535,14 +531,12 @@ function hasConflict(course1, course2) {
 ## Testing Strategy
 
 1. **Unit Tests**:
-
    - Course parser with sample HTML
    - Time parsing functions
    - Conflict detection logic
    - Planner algorithm
 
 2. **Integration Tests**:
-
    - Content script on Albert pages
    - Storage operations
    - Cross-component communication

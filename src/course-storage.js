@@ -26,12 +26,12 @@ function validateTimeObject(time, context) {
 	assert(Number.isInteger(time.hours), `${context}.hours must be an integer`);
 	assert(
 		Number.isInteger(time.minutes),
-		`${context}.minutes must be an integer`
+		`${context}.minutes must be an integer`,
 	);
 	assert(time.hours >= 0 && time.hours <= 23, `${context}.hours out of range`);
 	assert(
 		time.minutes >= 0 && time.minutes <= 59,
-		`${context}.minutes out of range`
+		`${context}.minutes out of range`,
 	);
 }
 
@@ -53,13 +53,13 @@ function validateComponent(component, context) {
 	assert(isPlainObject(component), `${context} must be an object`);
 	assert(
 		typeof component.type === "string" && component.type.trim().length > 0,
-		`${context}.type is required`
+		`${context}.type is required`,
 	);
 	assert(Array.isArray(component.days), `${context}.days must be an array`);
 	for (const day of component.days) {
 		assert(
 			typeof day === "string" && day.trim().length > 0,
-			`${context}.days must contain non-empty strings`
+			`${context}.days must contain non-empty strings`,
 		);
 	}
 	validateTimeRange(component.timeRange ?? null, `${context}.timeRange`);
@@ -67,28 +67,34 @@ function validateComponent(component, context) {
 
 function validateCourse(course) {
 	assert(isPlainObject(course), "Course must be an object");
-	assert(typeof course.id === "string" && course.id.trim(), "Course id is required");
+	assert(
+		typeof course.id === "string" && course.id.trim(),
+		"Course id is required",
+	);
 	assert(
 		typeof course.courseCode === "string" && course.courseCode.trim(),
-		"Course code is required"
+		"Course code is required",
 	);
 	assert(
 		typeof course.section === "string" && course.section.trim(),
-		"Course section is required"
+		"Course section is required",
 	);
 	assert(typeof course.title === "string", "Course title must be a string");
 	assert(
 		typeof course.credits === "number" && Number.isFinite(course.credits),
-		"Course credits must be a valid number"
+		"Course credits must be a valid number",
 	);
-	assert(Array.isArray(course.components), "Course components must be an array");
+	assert(
+		Array.isArray(course.components),
+		"Course components must be an array",
+	);
 	for (let index = 0; index < course.components.length; index += 1) {
 		validateComponent(course.components[index], `Course component[${index}]`);
 	}
 	if (course.bucket !== null && course.bucket !== undefined) {
 		assert(
 			typeof course.bucket === "string" && course.bucket.trim().length > 0,
-			"Course bucket must be null or a non-empty string"
+			"Course bucket must be null or a non-empty string",
 		);
 	}
 
@@ -97,18 +103,21 @@ function validateCourse(course) {
 
 function validateBucket(bucket, context = "Bucket") {
 	assert(isPlainObject(bucket), `${context} must be an object`);
-	assert(typeof bucket.id === "string" && bucket.id.trim(), `${context} id is required`);
+	assert(
+		typeof bucket.id === "string" && bucket.id.trim(),
+		`${context} id is required`,
+	);
 	assert(
 		typeof bucket.name === "string" && bucket.name.trim(),
-		`${context} name is required`
+		`${context} name is required`,
 	);
 	assert(
 		typeof bucket.color === "string" && bucket.color.trim(),
-		`${context} color is required`
+		`${context} color is required`,
 	);
 	assert(
 		typeof bucket.priority === "number" && Number.isFinite(bucket.priority),
-		`${context} priority must be a valid number`
+		`${context} priority must be a valid number`,
 	);
 
 	return bucket;
@@ -119,7 +128,7 @@ function validatePlannerSelection(courseIds) {
 	for (const id of courseIds) {
 		assert(
 			typeof id === "string" && id.trim().length > 0,
-			"Planner selection entries must be non-empty strings"
+			"Planner selection entries must be non-empty strings",
 		);
 	}
 	return Array.from(new Set(courseIds));
@@ -244,15 +253,15 @@ export async function createBucket(bucket) {
 	assert(isPlainObject(bucket), "Bucket payload must be an object");
 	assert(
 		typeof bucket.name === "string" && bucket.name.trim(),
-		"Bucket name is required"
+		"Bucket name is required",
 	);
 	assert(
 		typeof bucket.color === "string" && bucket.color.trim(),
-		"Bucket color is required"
+		"Bucket color is required",
 	);
 	assert(
 		typeof bucket.priority === "number" && Number.isFinite(bucket.priority),
-		"Bucket priority must be a valid number"
+		"Bucket priority must be a valid number",
 	);
 
 	const buckets = await getBuckets();
@@ -272,7 +281,7 @@ export async function createBucket(bucket) {
 export async function updateBucket(bucketId, updates) {
 	assert(
 		typeof bucketId === "string" && bucketId.trim(),
-		"Bucket id is required"
+		"Bucket id is required",
 	);
 	assert(isPlainObject(updates), "Bucket updates must be an object");
 
@@ -292,13 +301,13 @@ export async function updateBucket(bucketId, updates) {
 export async function deleteBucket(bucketId) {
 	assert(
 		typeof bucketId === "string" && bucketId.trim(),
-		"Bucket id is required"
+		"Bucket id is required",
 	);
 
 	const [buckets, courses] = await Promise.all([getBuckets(), getCourses()]);
 	const filteredBuckets = buckets.filter((b) => b.id !== bucketId);
 	const nextCourses = courses.map((course) =>
-		course.bucket === bucketId ? { ...course, bucket: null } : course
+		course.bucket === bucketId ? { ...course, bucket: null } : course,
 	);
 
 	await chrome.storage.local.set({
@@ -410,9 +419,12 @@ export async function importData(backup) {
 		validateBucket(importedBuckets[index], `Bucket[${index}]`);
 	}
 
-	assert(isPlainObject(importedSettings), "Imported settings must be an object");
+	assert(
+		isPlainObject(importedSettings),
+		"Imported settings must be an object",
+	);
 	const normalizedPlannerSelection = validatePlannerSelection(
-		importedPlannerSelection
+		importedPlannerSelection,
 	);
 
 	await chrome.storage.local.clear();

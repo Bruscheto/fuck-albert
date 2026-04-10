@@ -39,6 +39,7 @@ const DRAWER_IDS = {
 	toggle: "albert-planner-toggle",
 	iframe: "albert-planner-frame",
 };
+const PLANNER_HOSTS = new Set(["sis.portal.nyu.edu", "sis.nyu.edu"]);
 
 let drawerInitialized = false;
 let contextInvalidatedNotified = false;
@@ -58,7 +59,7 @@ function logAvailableTables() {
 				table.getAttribute("summary") ||
 				"<no-title>";
 			return `#${idx} ${cls} | ${title}`;
-		})
+		}),
 	);
 }
 
@@ -69,7 +70,7 @@ function findCartTable() {
 	}
 
 	const fallbackTables = Array.from(
-		document.querySelectorAll("table.ps_grid-flex")
+		document.querySelectorAll("table.ps_grid-flex"),
 	);
 	if (!fallbackTables.length) {
 		debugLog("No ps_grid-flex tables present yet");
@@ -89,7 +90,7 @@ function findCartTable() {
 				title: t.getAttribute("title"),
 				summary: t.getAttribute("summary"),
 				className: t.className,
-			}))
+			})),
 		);
 	}
 
@@ -150,7 +151,7 @@ function parseDaysAndTime(daysTimesStr) {
 	// Format: "TuTh 09:30 - 10:45" or "Fr 2:00PM - 3:15PM"
 	// Capture days, start time (with optional AM/PM), end time (with optional AM/PM)
 	const match = normalized.match(
-		/^([A-Za-z]+)\s+(\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?)\s*-\s*(\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?)$/
+		/^([A-Za-z]+)\s+(\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?)\s*-\s*(\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?)$/,
 	);
 
 	if (!match) {
@@ -254,20 +255,20 @@ function parseRow(row) {
 
 	// Instructor
 	const instructorEl = layout.querySelector(
-		'[id^="DERIVED_REGFRM1_SSR_INSTR_LONG"]'
+		'[id^="DERIVED_REGFRM1_SSR_INSTR_LONG"]',
 	);
 	const instructor = instructorEl?.textContent?.trim() || "TBA";
 
 	// Days/Times
 	const daysTimesEl = layout.querySelector(
-		'[id^="DERIVED_REGFRM1_SSR_MTG_SCHED_LONG"]'
+		'[id^="DERIVED_REGFRM1_SSR_MTG_SCHED_LONG"]',
 	);
 	const daysTimesStr = daysTimesEl?.textContent?.trim() || "TBA";
 	const { days, timeRange, isTBA } = parseDaysAndTime(daysTimesStr);
 
 	// Location
 	const locationEl = layout.querySelector(
-		'[id^="DERIVED_REGFRM1_SSR_MTG_LOC_LONG"]'
+		'[id^="DERIVED_REGFRM1_SSR_MTG_LOC_LONG"]',
 	);
 	const location = locationEl?.textContent?.trim() || "TBA";
 
@@ -280,7 +281,7 @@ function parseRow(row) {
 
 	// Status
 	const statusImg = layout.querySelector(
-		'[id^="win0divDERIVED_REGFRM1_SSR_STATUS_LONG"] img'
+		'[id^="win0divDERIVED_REGFRM1_SSR_STATUS_LONG"] img',
 	);
 	const status = statusImg?.getAttribute("alt") || "Unknown";
 
@@ -325,7 +326,7 @@ function parseShoppingCart(existingTable = null) {
 		if (!parsed) continue;
 
 		debugLog(
-			`Row ${parsed.rowIndex}: ${parsed.courseCode}-${parsed.section}, units=${parsed.credits}, isRecit=${parsed.isRecitation}`
+			`Row ${parsed.rowIndex}: ${parsed.courseCode}-${parsed.section}, units=${parsed.credits}, isRecit=${parsed.isRecitation}`,
 		);
 
 		if (parsed.isRecitation) {
@@ -342,7 +343,7 @@ function parseShoppingCart(existingTable = null) {
 					status: parsed.status,
 				});
 				debugLog(
-					`Added recitation ${parsed.section} to ${currentCourse.courseCode}`
+					`Added recitation ${parsed.section} to ${currentCourse.courseCode}`,
 				);
 			} else {
 				debugLog(`Orphan recitation: ${parsed.courseCode}-${parsed.section}`);
@@ -380,7 +381,7 @@ function parseShoppingCart(existingTable = null) {
 			};
 
 			debugLog(
-				`Parsed course: ${parsed.courseCode}-${parsed.section} (${parsed.credits} credits)`
+				`Parsed course: ${parsed.courseCode}-${parsed.section} (${parsed.credits} credits)`,
 			);
 		}
 	}
@@ -405,7 +406,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		const cartTable = findCartTable();
 
 		if (!cartTable && !isLikelyCartUrl) {
-			debugLog("Skipping parse request in non-cart frame", window.location.href);
+			debugLog(
+				"Skipping parse request in non-cart frame",
+				window.location.href,
+			);
 			// Let other frames respond.
 			return false;
 		}
@@ -454,7 +458,7 @@ function initPlannerDrawer() {
 
 	// Restrict to specific URL
 	const isTargetUrl =
-		window.location.hostname === "sis.portal.nyu.edu" &&
+		PLANNER_HOSTS.has(window.location.hostname) &&
 		window.location.pathname.startsWith("/psp");
 
 	if (!isTargetUrl) {
@@ -498,7 +502,7 @@ function requestChromeSidePanelOpen() {
 			toggle.style.cursor = "not-allowed";
 			toggle.setAttribute(
 				"title",
-				"Extension was reloaded. Refresh this page to re-enable the planner toggle."
+				"Extension was reloaded. Refresh this page to re-enable the planner toggle.",
 			);
 			toggle.setAttribute("aria-label", "Refresh page to re-enable planner");
 			const label = toggle.querySelector("span");
@@ -510,7 +514,7 @@ function requestChromeSidePanelOpen() {
 		if (!contextInvalidatedNotified) {
 			contextInvalidatedNotified = true;
 			console.info(
-				"[Albert Enhancer] Extension context invalidated. Refresh the page to reconnect planner controls."
+				"[Albert Enhancer] Extension context invalidated. Refresh the page to reconnect planner controls.",
 			);
 		}
 	};
@@ -521,9 +525,11 @@ function requestChromeSidePanelOpen() {
 	};
 
 	const isNoResponsePortClosedError = (errorLike) => {
-		const message = (errorLike?.message || String(errorLike || "")).toLowerCase();
+		const message = (
+			errorLike?.message || String(errorLike || "")
+		).toLowerCase();
 		return message.includes(
-			"the message port closed before a response was received"
+			"the message port closed before a response was received",
 		);
 	};
 
@@ -550,7 +556,7 @@ function requestChromeSidePanelOpen() {
 
 			console.warn(
 				"[Albert Enhancer] Failed to request side panel open",
-				chrome.runtime.lastError.message
+				chrome.runtime.lastError.message,
 			);
 		});
 	} catch (error) {

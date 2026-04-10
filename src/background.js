@@ -4,7 +4,7 @@ import { initializeStorage } from "./course-storage.js";
 
 const PANEL_PATH = "src/popup.html?mode=sidepanel";
 const WEEKLY_VIEW_PATH = "src/weekly-view.html";
-const ALLOWED_SIDE_PANEL_HOST = "nyu.edu";
+const ALLOWED_SIDE_PANEL_HOSTS = ["sis.portal.nyu.edu", "sis.nyu.edu"];
 const hasSidePanelApi = Boolean(chrome.sidePanel);
 
 console.log("[Albert Enhancer] Background service worker started");
@@ -59,7 +59,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 		} catch (error) {
 			console.error(
 				"[Albert Enhancer] Failed to initialize side panel:",
-				error
+				error,
 			);
 		}
 	}
@@ -86,7 +86,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		case "COURSES_PARSED":
 			// Content script parsed the shopping cart - save to storage
 			handleCoursesParsed(message.courses, sender.tab).catch((error) => {
-				console.error("[Albert Enhancer] Failed to persist parsed courses:", error);
+				console.error(
+					"[Albert Enhancer] Failed to persist parsed courses:",
+					error,
+				);
 			});
 			break;
 
@@ -133,7 +136,7 @@ if (hasSidePanelApi) {
 				if (!isBenignTabsError(error)) {
 					console.error(
 						"[Albert Enhancer] Failed to configure side panel on tab update:",
-						error
+						error,
 					);
 				}
 			});
@@ -148,7 +151,7 @@ if (hasSidePanelApi) {
 			if (!isBenignTabsError(error)) {
 				console.error(
 					"[Albert Enhancer] Failed to handle tab activation:",
-					error
+					error,
 				);
 			}
 		}
@@ -172,7 +175,7 @@ async function handleCoursesParsed(courses, tab) {
 	console.log(
 		"[Albert Enhancer] Saved",
 		filteredCourses.length,
-		"courses to storage"
+		"courses to storage",
 	);
 
 	// Update badge with course count
@@ -213,10 +216,7 @@ async function openWeeklyView() {
 function isAllowedSidePanelUrl(urlString) {
 	try {
 		const url = new URL(urlString);
-		return (
-			url.hostname === ALLOWED_SIDE_PANEL_HOST ||
-			url.hostname.endsWith(`.${ALLOWED_SIDE_PANEL_HOST}`)
-		);
+		return ALLOWED_SIDE_PANEL_HOSTS.includes(url.hostname);
 	} catch (error) {
 		return false;
 	}
@@ -236,11 +236,11 @@ async function configureSidePanelForTab(tabId, url) {
 						tabId,
 						path: PANEL_PATH,
 						enabled: true,
-				  }
+					}
 				: {
 						tabId,
 						enabled: false,
-				  }
+					},
 		);
 	} catch (error) {
 		console.error("[Albert Enhancer] Failed to configure side panel:", error);
@@ -267,7 +267,7 @@ function removeAllContextMenus() {
 			if (chrome.runtime.lastError) {
 				console.warn(
 					"[Albert Enhancer] Failed to clear context menus:",
-					chrome.runtime.lastError.message
+					chrome.runtime.lastError.message,
 				);
 			}
 			resolve();
@@ -282,7 +282,7 @@ function createContextMenu(menuConfig) {
 				console.error(
 					"[Albert Enhancer] Failed to create context menu:",
 					menuConfig.id,
-					chrome.runtime.lastError.message
+					chrome.runtime.lastError.message,
 				);
 			}
 			resolve();
@@ -311,7 +311,8 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
 			break;
 
 		case "clear-courses":
-			await chrome.storage.local.set({ courses: [] });
+			await chrome.storage.local.set({ courses: [], plannerSelection: [] });
+			await chrome.action.setBadgeText({ text: "" });
 			console.log("[Albert Enhancer] All courses cleared");
 			break;
 	}

@@ -1,0 +1,222 @@
+.metadata-empty-state {
+	padding: 28px 24px;
+	border: 1px dashed rgba(107, 114, 128, 0.35);
+	border-radius: 16px;
+	background: rgba(249, 250, 251, 0.9);
+}
+
+.metadata-empty-state h3 {
+	font-size: 16px;
+	margin-bottom: 6px;
+	color: var(--text-primary);
+}
+
+.metadata-empty-state p {
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+.metadata-summary {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 20px;
+	border-radius: 18px;
+	background: linear-gradient(
+		180deg,
+		rgba(87, 6, 140, 0.1) 0%,
+		rgba(255, 255, 255, 0.95) 100%
+	);
+	border: 1px solid rgba(87, 6, 140, 0.12);
+}
+
+.metadata-summary-top {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.metadata-eyebrow {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--text-secondary);
+	margin-bottom: 4px;
+}
+
+.metadata-course-code {
+	font-size: 22px;
+	line-height: 1.1;
+	color: var(--text-primary);
+}
+
+.metadata-course-title {
+	font-size: 15px;
+	line-height: 1.4;
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.metadata-credit-pill {
+	flex-shrink: 0;
+	padding: 6px 10px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--nyu-purple);
+	background: rgba(87, 6, 140, 0.12);
+}
+
+.metadata-summary-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 10px;
+}
+
+.metadata-summary-item {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.metadata-summary-label {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--text-secondary);
+}
+
+.metadata-summary-value {
+	font-size: 13px;
+	line-height: 1.45;
+	color: var(--text-primary);
+}
+
+.metadata-section {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 20px;
+	border-radius: 18px;
+	background: #fff;
+	border: 1px solid var(--border-color);
+	box-shadow: var(--shadow-sm);
+}
+
+.metadata-section-heading {
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-secondary);
+}
+
+.metadata-section-copy {
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+.metadata-bucket-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.metadata-bucket-option {
+	width: 100%;
+	border: 1px solid var(--border-color);
+	border-radius: 14px;
+	background: #fff;
+	padding: 12px 14px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		border-color 0.2s ease,
+		box-shadow 0.2s ease,
+		transform 0.2s ease;
+}
+
+.metadata-bucket-option:hover {
+	border-color: rgba(87, 6, 140, 0.35);
+	box-shadow: 0 0 0 3px rgba(87, 6, 140, 0.08);
+	transform: translateY(-1px);
+}
+
+.metadata-bucket-option.is-active {
+	border-color: rgba(87, 6, 140, 0.45);
+	background: rgba(87, 6, 140, 0.04);
+	box-shadow: 0 0 0 3px rgba(87, 6, 140, 0.08);
+}
+
+.metadata-bucket-dot {
+	width: 12px;
+	height: 12px;
+	border-radius: 999px;
+	flex-shrink: 0;
+}
+
+.metadata-bucket-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1;
+	min-width: 0;
+}
+
+.metadata-bucket-name {
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--text-primary);
+}
+
+.metadata-bucket-helper {
+	font-size: 12px;
+	line-height: 1.4;
+	color: var(--text-secondary);
+}
+
+.metadata-bucket-state {
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--nyu-purple);
+	flex-shrink: 0;
+}
+
+.metadata-future-card {
+	border: 1px dashed rgba(156, 163, 175, 0.45);
+	border-radius: 14px;
+	padding: 14px;
+	background: rgba(249, 250, 251, 0.8);
+}
+
+.metadata-future-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.metadata-future-badge {
+	padding: 4px 8px;
+	border-radius: 999px;
+	background: rgba(17, 24, 39, 0.06);
+	color: var(--text-secondary);
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.metadata-future-card p {
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}

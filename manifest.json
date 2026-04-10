@@ -10,14 +10,14 @@
 		"contextMenus",
 		"sidePanel"
 	],
-	"host_permissions": ["https://sis.nyu.edu/*", "https://*.nyu.edu/*"],
+	"host_permissions": ["https://sis.portal.nyu.edu/*", "https://sis.nyu.edu/*"],
 	"background": {
 		"service_worker": "src/background.js",
 		"type": "module"
 	},
 	"content_scripts": [
 		{
-			"matches": ["https://sis.nyu.edu/*", "https://*.nyu.edu/*"],
+			"matches": ["https://sis.portal.nyu.edu/*", "https://sis.nyu.edu/*"],
 			"js": ["src/content.js"],
 			"css": ["src/content.css"],
 			"run_at": "document_idle",
@@ -67,7 +67,7 @@
 				"src/utils/calendar-utils.js",
 				"src/utils/time-parser.js"
 			],
-			"matches": ["<all_urls>"]
+			"matches": ["https://sis.portal.nyu.edu/*", "https://sis.nyu.edu/*"]
 		}
 	]
 }

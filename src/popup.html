@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Albert Course Planner</title>
+    <link rel="stylesheet" href="course-metadata-panel.css">
     <link rel="stylesheet" href="popup.css">
 </head>
 
@@ -91,6 +92,18 @@
                 </div>
             </div>
         </div>
+
+        <div id="course-metadata-backdrop" class="course-metadata-backdrop"></div>
+        <aside id="course-metadata-drawer" class="course-metadata-drawer" aria-hidden="true">
+            <div class="course-metadata-drawer-header">
+                <div>
+                    <p class="course-metadata-drawer-eyebrow">Course Details</p>
+                    <h2 id="course-metadata-drawer-title">Course Metadata</h2>
+                </div>
+                <button id="course-metadata-close" class="course-metadata-close" type="button" aria-label="Close course metadata panel">✕</button>
+            </div>
+            <div id="course-metadata-drawer-body" class="course-metadata-drawer-body"></div>
+        </aside>
     </div>
 
     <script src="popup.js" type="module"></script>

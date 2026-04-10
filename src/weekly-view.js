@@ -12,6 +12,7 @@ import {
 	deleteBucket,
 } from "./course-storage.js";
 import { flattenToSchedule } from "./planner.js";
+import { renderCourseMetadataContent } from "./course-metadata-panel.js";
 import { calculateWeeklyHours, findConflicts } from "./utils/calendar-utils.js";
 import { formatTime, timeToMinutes } from "./utils/time-parser.js";
 import { CALENDAR_CONFIG } from "./utils/constants.js";
@@ -20,7 +21,7 @@ import { CALENDAR_CONFIG } from "./utils/constants.js";
 
 const START_HOUR = CALENDAR_CONFIG.START_HOUR;
 const END_HOUR = CALENDAR_CONFIG.END_HOUR;
-const HOUR_HEIGHT = 60;
+const HOUR_HEIGHT = 80;
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const CONFLICT_COLOR_PALETTE = [
 	{ fill: "#c41e3a", border: "#a71931" },
@@ -49,6 +50,7 @@ function buildConflictColorMap(conflictCourseIds) {
 
 const timeColumn = document.getElementById("time-column");
 const calendarGrid = document.getElementById("calendar-grid");
+const calendarContainer = document.querySelector(".calendar-container");
 const calendarEmptyState = document.getElementById("calendar-empty-state");
 const sidebarPlanner = document.getElementById("sidebar-planner");
 const sidebarConflicts = document.getElementById("sidebar-conflicts");
@@ -58,6 +60,13 @@ const statCourses = document.getElementById("stat-courses");
 const statHours = document.getElementById("stat-hours");
 const btnAddBucket = document.getElementById("btn-add-bucket");
 const btnDeleteBucket = document.getElementById("btn-delete-bucket");
+const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
+const weeklySidebar = document.getElementById("weekly-sidebar");
+const metadataDrawer = document.getElementById("course-metadata-drawer");
+const metadataDrawerBackdrop = document.getElementById("course-metadata-backdrop");
+const metadataDrawerBody = document.getElementById("course-metadata-drawer-body");
+const metadataDrawerTitle = document.getElementById("course-metadata-drawer-title");
+const metadataDrawerClose = document.getElementById("course-metadata-close");
 
 // ============ State ============
 
@@ -70,6 +79,12 @@ const bucketsPendingDeletion = new Set();
 let activeRenameState = null;
 let plannerSelectionSet = new Set();
 let coursesById = new Map();
+let currentBuckets = [];
+let activeMetadataCourseId = null;
+let lastCourseBlockDragEndedAt = 0;
+let isSidebarOpen = true;
+
+const SIDEBAR_STORAGE_KEY = "weeklySidebarOpen";
 
 // ============ UI Helpers ============
 
@@ -98,6 +113,7 @@ function showModal(title, content, buttons = []) {
 		const bodyEl = document.getElementById("modal-body");
 		const footerEl = document.getElementById("modal-footer");
 		const closeBtn = document.getElementById("modal-close");
+		let isResolved = false;
 
 		titleEl.textContent = title;
 		bodyEl.innerHTML = "";
@@ -117,15 +133,18 @@ function showModal(title, content, buttons = []) {
 			}
 			button.textContent = btn.label;
 			button.addEventListener("click", () => {
-				closeModal();
-				resolve(btn.value);
+				closeModal(btn.value);
 			});
 			footerEl.appendChild(button);
 		});
 
-		function closeModal() {
+		function closeModal(result = null) {
+			if (isResolved) {
+				return;
+			}
+			isResolved = true;
 			overlay.classList.remove("is-open");
-			resolve(null);
+			resolve(result);
 		}
 
 		overlay.classList.add("is-open");
@@ -137,9 +156,108 @@ function showModal(title, content, buttons = []) {
 	});
 }
 
+function getStoredSidebarPreference() {
+	try {
+		const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+		if (stored === "false") return false;
+		if (stored === "true") return true;
+	} catch (error) {
+		// Ignore storage access failures in extension contexts.
+	}
+	return true;
+}
+
+function applySidebarState() {
+	document.body.classList.toggle("weekly-sidebar-collapsed", !isSidebarOpen);
+	if (btnSidebarToggle) {
+		btnSidebarToggle.setAttribute("aria-expanded", String(isSidebarOpen));
+		btnSidebarToggle.setAttribute(
+			"aria-label",
+			isSidebarOpen ? "Collapse planning drawer" : "Expand planning drawer",
+		);
+		btnSidebarToggle.title = isSidebarOpen
+			? "Collapse planning drawer"
+			: "Expand planning drawer";
+		btnSidebarToggle.classList.toggle("is-collapsed", !isSidebarOpen);
+	}
+	if (weeklySidebar) {
+		weeklySidebar.setAttribute("aria-hidden", String(!isSidebarOpen));
+	}
+}
+
+function setSidebarOpen(nextOpen) {
+	isSidebarOpen = Boolean(nextOpen);
+	applySidebarState();
+	try {
+		window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(isSidebarOpen));
+	} catch (error) {
+		// Ignore storage access failures in extension contexts.
+	}
+}
+
+function toggleSidebar() {
+	setSidebarOpen(!isSidebarOpen);
+}
+
+function closeCourseMetadataDrawer() {
+	activeMetadataCourseId = null;
+	document.body.classList.remove("metadata-drawer-open");
+	metadataDrawer?.setAttribute("aria-hidden", "true");
+	if (metadataDrawerTitle) {
+		metadataDrawerTitle.textContent = "Course Metadata";
+	}
+}
+
+function renderCourseMetadataDrawer() {
+	if (!metadataDrawerBody || !activeMetadataCourseId) {
+		return;
+	}
+
+	const course = coursesById.get(activeMetadataCourseId);
+	if (!course) {
+		closeCourseMetadataDrawer();
+		return;
+	}
+
+	if (metadataDrawerTitle) {
+		metadataDrawerTitle.textContent = course.courseCode || "Course Metadata";
+	}
+
+	renderCourseMetadataContent({
+		container: metadataDrawerBody,
+		course,
+		buckets: currentBuckets,
+		onBucketSelect: async (bucketId) => {
+			if ((course.bucket ?? null) === (bucketId ?? null)) {
+				return;
+			}
+			await assignCourseToBucket(course.id, bucketId);
+			showToast(
+				bucketId ? "Course bucket updated" : "Course moved to Unsorted",
+				"success",
+			);
+			await loadSchedule();
+		},
+	});
+}
+
+function openCourseMetadataDrawer(courseId) {
+	if (!courseId) return;
+	cancelInlineRename();
+	activeMetadataCourseId = courseId;
+	renderCourseMetadataDrawer();
+	if (!coursesById.has(courseId)) {
+		return;
+	}
+	document.body.classList.add("metadata-drawer-open");
+	metadataDrawer?.setAttribute("aria-hidden", "false");
+}
+
 // ============ Initialization ============
 
 async function init() {
+	isSidebarOpen = getStoredSidebarPreference();
+	applySidebarState();
 	generateTimeLabels();
 	generateHourLines();
 	await loadSchedule();
@@ -188,6 +306,7 @@ async function loadSchedule() {
 		]);
 
 		coursesById = new Map(courses.map((course) => [course.id, course]));
+		currentBuckets = buckets;
 		plannerSelectionSet = new Set(plannerSelection);
 		const plannedCourses = courses.filter((course) =>
 			plannerSelectionSet.has(course.id),
@@ -212,6 +331,13 @@ async function loadSchedule() {
 			conflictColorMap,
 		});
 		toggleCalendarEmptyState(plannedSchedule.length === 0);
+		if (activeMetadataCourseId) {
+			if (coursesById.has(activeMetadataCourseId)) {
+				renderCourseMetadataDrawer();
+			} else {
+				closeCourseMetadataDrawer();
+			}
+		}
 	} catch (error) {
 		console.error("[Albert Enhancer] Error loading schedule", error);
 	}
@@ -342,6 +468,17 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 					});
 				}
 
+				const editButton = document.createElement("button");
+				editButton.type = "button";
+				editButton.className = "course-inline-action icon";
+				editButton.textContent = "✏️";
+				editButton.ariaLabel = "Edit course metadata";
+				editButton.title = "Edit course metadata";
+				editButton.addEventListener("click", (event) => {
+					event.stopPropagation();
+					openCourseMetadataDrawer(course.id);
+				});
+
 				const dragHandle = document.createElement("button");
 				dragHandle.type = "button";
 				dragHandle.className = "course-drag-handle";
@@ -363,7 +500,7 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 				dragHandle.addEventListener("dragstart", handleBucketCourseDragStart);
 				dragHandle.addEventListener("dragend", handleBucketCourseDragEnd);
 
-				footer.append(addButton, dragHandle);
+				footer.append(addButton, editButton, dragHandle);
 				entry.append(body, footer);
 				courseListInner.appendChild(entry);
 			}
@@ -600,14 +737,14 @@ function renderConflictsSidebar(conflicts = [], conflictColorMap = new Map()) {
 }
 
 function renderCourseBlocks(schedule, buckets, options = {}) {
-	const bucketColors = {};
+	const bucketDetails = {};
 	const {
 		highlightConflicts = false,
 		conflictCourseIds = new Set(),
 		conflictColorMap = new Map(),
 	} = options;
 	for (const bucket of buckets) {
-		bucketColors[bucket.id] = bucket.color;
+		bucketDetails[bucket.id] = bucket;
 	}
 
 	// Group by day
@@ -635,7 +772,7 @@ function renderCourseBlocks(schedule, buckets, options = {}) {
 			const isConflictCourse =
 				highlightConflicts && conflictCourseIds.has(component.courseId);
 
-			const block = createCourseBlock(component, bucketColors, {
+			const block = createCourseBlock(component, bucketDetails, {
 				isConflict: isConflictCourse,
 				conflictColorMap,
 				left: `${left}%`,
@@ -790,7 +927,7 @@ function layoutEventsForDay(events) {
 	return result;
 }
 
-function createCourseBlock(component, bucketColors, options = {}) {
+function createCourseBlock(component, bucketDetails, options = {}) {
 	const {
 		isConflict = false,
 		conflictColorMap = new Map(),
@@ -805,6 +942,9 @@ function createCourseBlock(component, bucketColors, options = {}) {
 	block.draggable = true;
 	block.dataset.courseId = component.courseId;
 	block.dataset.bucketId = component.bucket ?? "";
+	block.tabIndex = 0;
+	block.setAttribute("role", "button");
+	block.setAttribute("aria-label", `Open metadata for ${component.courseCode}`);
 	block.addEventListener("dragstart", handleCourseDragStart);
 	block.addEventListener("dragend", handleCourseDragEnd);
 
@@ -818,7 +958,8 @@ function createCourseBlock(component, bucketColors, options = {}) {
 	block.style.left = left;
 	block.style.width = width;
 
-	const color = bucketColors[component.bucket] || "#57068c";
+	const bucketInfo = component.bucket ? bucketDetails[component.bucket] : null;
+	const color = bucketInfo?.color || "#57068c";
 	if (!isConflict) {
 		block.style.backgroundColor = color;
 	} else {
@@ -831,12 +972,17 @@ function createCourseBlock(component, bucketColors, options = {}) {
 
 	const startStr = formatTime(component.timeRange.start);
 	const endStr = formatTime(component.timeRange.end);
+	const bucketPill = bucketInfo
+		? `<div class="course-block-tags"><span class="course-block-pill bucket">${bucketInfo.name}</span></div>`
+		: "";
 	const conflictMarker =
 		'<button type="button" class="course-block-conflict-mark" aria-label="Remove course from schedule"><span class="course-block-conflict-glyph" aria-hidden="true">&times;</span></button>';
 	block.innerHTML = `
     ${conflictMarker}
     <div class="course-block-code">${component.courseCode}</div>
+    <div class="course-block-title">${component.courseTitle || ""}</div>
     <div class="course-block-type">${component.type}</div>
+    ${bucketPill}
     <div class="course-block-time">${startStr} - ${endStr}</div>
   `;
 
@@ -853,6 +999,23 @@ function createCourseBlock(component, bucketColors, options = {}) {
 			await handlePlannerRemove(component.courseId);
 		});
 	}
+
+	block.addEventListener("click", (event) => {
+		if (event.target.closest(".course-block-conflict-mark")) {
+			return;
+		}
+		if (Date.now() - lastCourseBlockDragEndedAt < 200) {
+			return;
+		}
+		openCourseMetadataDrawer(component.courseId);
+	});
+
+	block.addEventListener("keydown", (event) => {
+		if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			openCourseMetadataDrawer(component.courseId);
+		}
+	});
 
 	block.title =
 		`${component.courseCode} - ${component.courseTitle}\n` +
@@ -879,6 +1042,7 @@ function handleCourseDragStart(event) {
 
 function handleCourseDragEnd(event) {
 	event.currentTarget.classList.remove("dragging");
+	lastCourseBlockDragEndedAt = Date.now();
 	resetDragPayload();
 }
 
@@ -1338,6 +1502,9 @@ async function deleteSelectedBuckets() {
 
 function setupEventListeners() {
 	btnAddBucket?.addEventListener("click", () => handleBucketCreate());
+	btnSidebarToggle?.addEventListener("click", toggleSidebar);
+	metadataDrawerClose?.addEventListener("click", closeCourseMetadataDrawer);
+	metadataDrawerBackdrop?.addEventListener("click", closeCourseMetadataDrawer);
 
 	calendarGrid?.addEventListener("dragenter", handleCalendarDragEnter);
 	calendarGrid?.addEventListener("dragover", handleCalendarDragOver);
@@ -1363,6 +1530,16 @@ function setupEventListeners() {
 		) {
 			clearCourseBlocks();
 			loadSchedule();
+		}
+	});
+
+	document.addEventListener("keydown", (event) => {
+		if (event.key === "Escape" && activeMetadataCourseId) {
+			closeCourseMetadataDrawer();
+			return;
+		}
+		if (event.key === "Escape" && isSidebarOpen) {
+			setSidebarOpen(false);
 		}
 	});
 }
