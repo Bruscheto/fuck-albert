@@ -1,75 +1,48 @@
-# Albert Course Planner
+# Fuck Albert
 
-A browser extension to enhance the NYU course registration experience with Albert. This tool automatically tracks courses in your shopping cart, displays them in a weekly calendar view, and helps you organize courses into priority buckets.
+A Chrome extension that unfucks NYU's Albert course registration. Scrapes your shopping cart, throws it on a weekly calendar, and lets you plan your schedule without losing your mind.
 
-## Features
+## What it does
 
-- **Automatic Course Detection**: Parses course info from shopping cart DOM (code, section, credits, times, days, room, instructor)
-- **Weekly Calendar View**: Real-time visual schedule with conflict highlighting
-- **Priority Buckets**: Drag-and-drop courses into Required, High, Medium, Low, Backup priorities
-- **Conflict Detection**: Automatic schedule conflict detection with suggestions
-- **Auto Planner**: Greedy algorithm to generate conflict-free schedule by priority order
-- **Export/Import**: Backup and restore course selections as JSON
+- **Reads your shopping cart** — auto-parses courses, times, instructors, rooms, credits from Albert's DOM
+- **Weekly calendar** — see your entire schedule laid out, conflicts highlighted in real time
+- **Priority buckets** — drag courses into Required / High / Medium / Low / Backup tiers
+- **Auto planner** — generates a conflict-free schedule by priority (greedy)
+- **Side panel mode** — use it inline while browsing Albert, or as a popup
+- **Course metadata panel** — quick-view course details without leaving the page
+- **Export/Import** — backup your picks as JSON
+- **Keyboard shortcut** — `Alt+Shift+P` to open the planner
 
-## Installation
+## Install
 
-1. Clone or download this repository
-2. Open Chrome/Edge and navigate to `chrome://extensions/` (or `edge://extensions/`)
-3. Enable "Developer mode" in the top right
-4. Click "Load unpacked" and select this project directory
-5. The extension icon should appear in your browser toolbar
+1. Clone this repo
+2. Go to `chrome://extensions/` → enable **Developer mode**
+3. **Load unpacked** → select this folder
+4. Navigate to [Albert](https://sis.nyu.edu) and start planning
 
-## Usage
+Works on Chrome and Edge (Chromium-based).
 
-1. Navigate to Albert (sis.nyu.edu) and log in
-2. Go to your Shopping Cart
-3. Click ➕ next to courses to add them to the planner
-4. Click the extension icon to view courses and manage buckets
-5. Open 📅 Weekly View to see the calendar
-6. Use Alt+Shift+P to quickly open the planner
-
-## Project Structure
+## Project structure
 
 ```
-albert-enhancer/
-├── manifest.json           # MV3 extension config
-├── assets/
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
+fuck-albert/
+├── manifest.json
+├── assets/                     # Extension icons (16/48/128)
+├── plan/                       # Dev planning docs
 └── src/
-    ├── background.js       # Service worker (messages, context menu, commands)
-    ├── content.js          # DOM observer, course detection, UI injection
-    ├── content.css         # Injected styles
-    ├── course-storage.js   # chrome.storage.local CRUD
-    ├── bucket-manager.js   # Bucket UI + drag-drop
-    ├── planner.js          # Conflict detection, schedule optimization
-    ├── popup.html/css/js   # Extension popup
-    ├── weekly-view.html/css/js  # Full calendar page
+    ├── background.js           # Service worker, messaging, context menus
+    ├── content.js              # DOM observer, course scraping, UI injection
+    ├── content.css             # Injected page styles
+    ├── course-storage.js       # chrome.storage CRUD for courses & buckets
+    ├── course-metadata-panel.js/css  # Course detail overlay
+    ├── bucket-manager.js       # Bucket UI + drag-drop logic
+    ├── planner.js              # Conflict detection & schedule optimization
+    ├── popup.html/css/js       # Extension popup / side panel
+    ├── weekly-view.html/css/js # Full calendar view
     └── utils/
-        ├── constants.js    # Selectors, config, defaults
-        ├── time-parser.js  # Parse "09:30 AM - 10:45 AM", "TTh"
-        └── calendar-utils.js # Grid building, overlap checks
-```
-
-## DOM Selectors
-
-The extension parses Albert's shopping cart using these selectors:
-
-- `table.ps_grid-flex[title*="Shopping Cart"]` — Shopping cart table
-- `tr.ps_grid-row` — Course rows in the cart table
-- `div.ps_box-group.psc_layout` — Row layout wrapper for course fields
-- Day abbreviations: `M`, `T`, `W`, `Th`, `F` (parsed to `Mon`, `Tue`, etc.)
-- Time format: `09:30 AM -\n10:45 AM`
-
-## Development
-
-```bash
-# No build step required - plain ES modules
-# Load as unpacked extension for development
-
-# To update icons:
-python3 -c "from PIL import Image..."  # see assets/ generation
+        ├── constants.js        # Selectors, config, defaults
+        ├── time-parser.js      # "09:30 AM - 10:45 AM", "TTh" → structured data
+        └── calendar-utils.js   # Grid layout, overlap detection
 ```
 
 ## License
