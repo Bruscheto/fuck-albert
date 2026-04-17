@@ -279,6 +279,11 @@ body.layout-drawer .popup-container {
 	color: var(--nyu-purple);
 }
 
+.course-badge-online {
+	background: rgba(3, 105, 161, 0.1);
+	color: #0369a1;
+}
+
 .course-title {
 	font-size: 13px;
 	font-weight: 500;

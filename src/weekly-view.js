@@ -10,10 +10,19 @@ import {
 	assignCourseToBucket,
 	updateBucket,
 	deleteBucket,
+	getProfessorRatings,
 } from "./course-storage.js";
 import { flattenToSchedule } from "./planner.js";
-import { renderCourseMetadataContent } from "./course-metadata-panel.js";
-import { calculateWeeklyHours, findConflicts } from "./utils/calendar-utils.js";
+import {
+	renderCourseMetadataContent,
+	ratingTier,
+} from "./course-metadata-panel.js";
+import {
+	calculateWeeklyHours,
+	findConflicts,
+	getEarliestStart,
+	getLatestEnd,
+} from "./utils/calendar-utils.js";
 import { formatTime, timeToMinutes } from "./utils/time-parser.js";
 import { CALENDAR_CONFIG } from "./utils/constants.js";
 
@@ -44,6 +53,29 @@ function buildConflictColorMap(conflictCourseIds) {
 		);
 	});
 	return map;
+}
+
+/**
+ * Deterministic low-saturation color from a course code string.
+ * Same courseCode (regardless of section) always produces the same hue.
+ */
+function courseCodeToColor(courseCode) {
+	let hash = 0;
+	for (let i = 0; i < courseCode.length; i++) {
+		hash = courseCode.charCodeAt(i) + ((hash << 5) - hash);
+		hash |= 0;
+	}
+	const hue = ((hash % 360) + 360) % 360;
+	return `hsl(${hue}, 42%, 56%)`;
+}
+
+function isComponentOnline(component) {
+	if (!component?.room) return false;
+	return /\bonline\b/i.test(component.room);
+}
+
+function isCourseOnline(course) {
+	return course?.components?.some(isComponentOnline) ?? false;
 }
 
 // ============ DOM Elements ============
@@ -83,8 +115,56 @@ let currentBuckets = [];
 let activeMetadataCourseId = null;
 let lastCourseBlockDragEndedAt = 0;
 let isSidebarOpen = true;
+let cachedPlannedSchedule = [];
+let cachedProfRatings = {};
+let skipDrawerRefresh = false;
 
 const SIDEBAR_STORAGE_KEY = "weeklySidebarOpen";
+const SECTION_COLLAPSE_KEY = "weeklySectionCollapseState";
+
+// ============ Section Collapse ============
+
+function getSectionCollapseState() {
+	try {
+		const stored = window.localStorage.getItem(SECTION_COLLAPSE_KEY);
+		if (stored) return JSON.parse(stored);
+	} catch (e) {
+		// Ignore storage access failures in extension contexts.
+	}
+	return {};
+}
+
+function saveSectionCollapseState(state) {
+	try {
+		window.localStorage.setItem(
+			SECTION_COLLAPSE_KEY,
+			JSON.stringify(state),
+		);
+	} catch (e) {
+		// Ignore storage access failures in extension contexts.
+	}
+}
+
+function applySectionCollapseStates() {
+	const state = getSectionCollapseState();
+	document
+		.querySelectorAll(".sidebar-section[data-section]")
+		.forEach((section) => {
+			const key = section.dataset.section;
+			if (state[key]) {
+				section.classList.add("is-collapsed");
+			}
+		});
+}
+
+function toggleSectionCollapse(sectionEl) {
+	const key = sectionEl.dataset.section;
+	if (!key) return;
+	const isCollapsed = sectionEl.classList.toggle("is-collapsed");
+	const state = getSectionCollapseState();
+	state[key] = isCollapsed;
+	saveSectionCollapseState(state);
+}
 
 // ============ UI Helpers ============
 
@@ -203,9 +283,47 @@ function closeCourseMetadataDrawer() {
 	activeMetadataCourseId = null;
 	document.body.classList.remove("metadata-drawer-open");
 	metadataDrawer?.setAttribute("aria-hidden", "true");
-	if (metadataDrawerTitle) {
-		metadataDrawerTitle.textContent = "Course Metadata";
+}
+
+function buildCourseContext(course) {
+	const isPlanned = plannerSelectionSet.has(course.id);
+	const online = isCourseOnline(course);
+
+	const scheduledDays = [];
+	if (isPlanned && course.components) {
+		for (const comp of course.components) {
+			if (comp.timeRange && comp.days?.length) {
+				for (const day of comp.days) {
+					if (!scheduledDays.includes(day)) scheduledDays.push(day);
+				}
+			}
+		}
 	}
+
+	const conflictCodes = [];
+	if (isPlanned) {
+		const conflicts = findConflicts(course, cachedPlannedSchedule);
+		const seen = new Set();
+		for (const c of conflicts) {
+			const other = coursesById.get(c.existingCourse);
+			if (other && !seen.has(other.courseCode)) {
+				conflictCodes.push(other.courseCode);
+				seen.add(other.courseCode);
+			}
+		}
+	}
+
+	const missingTypes = [];
+	if (course.components?.length > 1) {
+		for (const comp of course.components) {
+			if (!comp.timeRange || !comp.days?.length) {
+				const t = comp.type || "Section";
+				if (!missingTypes.includes(t)) missingTypes.push(t);
+			}
+		}
+	}
+
+	return { isPlanned, online, scheduledDays, conflictCodes, missingTypes };
 }
 
 function renderCourseMetadataDrawer() {
@@ -219,14 +337,12 @@ function renderCourseMetadataDrawer() {
 		return;
 	}
 
-	if (metadataDrawerTitle) {
-		metadataDrawerTitle.textContent = course.courseCode || "Course Metadata";
-	}
-
 	renderCourseMetadataContent({
 		container: metadataDrawerBody,
 		course,
 		buckets: currentBuckets,
+		context: buildCourseContext(course),
+		ratings: cachedProfRatings,
 		onBucketSelect: async (bucketId) => {
 			if ((course.bucket ?? null) === (bucketId ?? null)) {
 				return;
@@ -258,6 +374,7 @@ function openCourseMetadataDrawer(courseId) {
 async function init() {
 	isSidebarOpen = getStoredSidebarPreference();
 	applySidebarState();
+	applySectionCollapseStates();
 	generateTimeLabels();
 	generateHourLines();
 	await loadSchedule();
@@ -299,11 +416,14 @@ function generateHourLines() {
 async function loadSchedule() {
 	try {
 		clearCourseBlocks();
-		const [courses, buckets, plannerSelection] = await Promise.all([
-			getCourses(),
-			getBuckets(),
-			getPlannerSelection(),
-		]);
+		const [courses, buckets, plannerSelection, profRatings] =
+			await Promise.all([
+				getCourses(),
+				getBuckets(),
+				getPlannerSelection(),
+				getProfessorRatings(),
+			]);
+		cachedProfRatings = profRatings;
 
 		coursesById = new Map(courses.map((course) => [course.id, course]));
 		currentBuckets = buckets;
@@ -312,6 +432,7 @@ async function loadSchedule() {
 			plannerSelectionSet.has(course.id),
 		);
 		const plannedSchedule = flattenToSchedule(plannedCourses);
+		cachedPlannedSchedule = plannedSchedule;
 
 		updatePlannerStats(plannedCourses, plannedSchedule);
 		const grouped = buildBucketGroups(courses, buckets);
@@ -324,14 +445,15 @@ async function loadSchedule() {
 			plannedSchedule,
 		);
 		const conflictColorMap = buildConflictColorMap(conflictCourseIds);
-		renderConflictsSidebar(conflicts, conflictColorMap);
+		const incompleteWarnings = checkIncompleteScheduling(plannedCourses);
+		renderConflictsSidebar(conflicts, conflictColorMap, incompleteWarnings);
 		renderCourseBlocks(plannedSchedule, buckets, {
 			highlightConflicts: conflictCourseIds.size > 0,
 			conflictCourseIds,
 			conflictColorMap,
 		});
 		toggleCalendarEmptyState(plannedSchedule.length === 0);
-		if (activeMetadataCourseId) {
+		if (activeMetadataCourseId && !skipDrawerRefresh) {
 			if (coursesById.has(activeMetadataCourseId)) {
 				renderCourseMetadataDrawer();
 			} else {
@@ -348,6 +470,17 @@ async function loadSchedule() {
 function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 	sidebarBuckets.innerHTML = "";
 	activeRenameState = null;
+
+	const hasUserBuckets = Object.keys(byBucket).some(
+		(key) => key !== "unsorted",
+	);
+	if (!hasUserBuckets) {
+		const helper = document.createElement("p");
+		helper.className = "bucket-helper-text";
+		helper.textContent =
+			"Organize courses into groups to compare schedule options.";
+		sidebarBuckets.appendChild(helper);
+	}
 
 	for (const key of Object.keys(byBucket)) {
 		const { bucket, courses } = byBucket[key];
@@ -374,6 +507,13 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 
 		const header = document.createElement("div");
 		header.className = "bucket-item";
+		header.tabIndex = 0;
+		header.setAttribute("role", "button");
+		header.setAttribute(
+			"aria-label",
+			`${bucket.name} bucket, ${courses.length} courses`,
+		);
+		header.setAttribute("aria-expanded", String(!isCollapsed));
 		if (deleteMode && isDeletable) {
 			header.classList.add("is-delete-mode");
 		}
@@ -439,6 +579,11 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 				entry.className = "bucket-course-entry";
 				entry.dataset.courseId = course.id;
 				entry.dataset.bucketId = bucketId ?? "";
+				entry.style.borderLeftColor = courseCodeToColor(course.courseCode);
+				entry.setAttribute(
+					"aria-label",
+					`${course.courseCode} — ${course.title}`,
+				);
 				const isPlanned = plannedSet.has(course.id);
 				if (isPlanned) {
 					entry.classList.add("is-planned");
@@ -446,23 +591,34 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 
 				const body = document.createElement("div");
 				body.className = "course-entry-body";
+				const onlineBadge = isCourseOnline(course)
+					? '<span class="course-online-badge">Online</span>'
+					: "";
 				body.innerHTML = `
 					<strong>${course.courseCode}</strong>
-					<span>${course.title}</span>
+					<span>${course.title}${onlineBadge}</span>
 				`;
 
 				const footer = document.createElement("div");
 				footer.className = "course-entry-footer";
 
-				const addButton = document.createElement("button");
-				addButton.type = "button";
-				addButton.className = "course-inline-action add";
+				const toggleButton = document.createElement("button");
+				toggleButton.type = "button";
 				if (isPlanned) {
-					addButton.textContent = "✅ Added";
-					addButton.disabled = true;
+					toggleButton.className = "course-icon-btn course-icon-btn--remove";
+					toggleButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+					toggleButton.ariaLabel = "Remove from calendar";
+					toggleButton.title = "Remove from calendar";
+					toggleButton.addEventListener("click", (event) => {
+						event.stopPropagation();
+						handlePlannerRemove(course.id);
+					});
 				} else {
-					addButton.textContent = "＋ Add";
-					addButton.addEventListener("click", (event) => {
+					toggleButton.className = "course-icon-btn course-icon-btn--add";
+					toggleButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+					toggleButton.ariaLabel = "Add to calendar";
+					toggleButton.title = "Add to calendar";
+					toggleButton.addEventListener("click", (event) => {
 						event.stopPropagation();
 						handlePlannerAdd(course.id);
 					});
@@ -470,8 +626,8 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 
 				const editButton = document.createElement("button");
 				editButton.type = "button";
-				editButton.className = "course-inline-action icon";
-				editButton.textContent = "✏️";
+				editButton.className = "course-icon-btn course-icon-btn--edit";
+				editButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 				editButton.ariaLabel = "Edit course metadata";
 				editButton.title = "Edit course metadata";
 				editButton.addEventListener("click", (event) => {
@@ -481,17 +637,8 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 
 				const dragHandle = document.createElement("button");
 				dragHandle.type = "button";
-				dragHandle.className = "course-drag-handle";
-				dragHandle.innerHTML = `
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<circle cx="9" cy="12" r="1" />
-						<circle cx="9" cy="5" r="1" />
-						<circle cx="9" cy="19" r="1" />
-						<circle cx="15" cy="12" r="1" />
-						<circle cx="15" cy="5" r="1" />
-						<circle cx="15" cy="19" r="1" />
-					</svg>
-				`;
+				dragHandle.className = "course-icon-btn course-icon-btn--drag";
+				dragHandle.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`;
 				dragHandle.ariaLabel = "Drag course";
 				dragHandle.draggable = true;
 				dragHandle.dataset.courseId = course.id;
@@ -500,13 +647,22 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 				dragHandle.addEventListener("dragstart", handleBucketCourseDragStart);
 				dragHandle.addEventListener("dragend", handleBucketCourseDragEnd);
 
-				footer.append(addButton, editButton, dragHandle);
+				footer.append(toggleButton, editButton, dragHandle);
 				entry.append(body, footer);
 				courseListInner.appendChild(entry);
 			}
 		}
 
 		courseList.appendChild(courseListInner);
+
+		const toggleBucketCollapse = () => {
+			const nextCollapsed = !courseList.classList.contains("is-collapsed");
+			courseList.classList.toggle("is-collapsed", nextCollapsed);
+			header.classList.toggle("is-collapsed", nextCollapsed);
+			wrapper.classList.toggle("is-collapsed", nextCollapsed);
+			header.setAttribute("aria-expanded", String(!nextCollapsed));
+			bucketCollapseState.set(collapseKey, nextCollapsed);
+		};
 
 		header.addEventListener("click", (event) => {
 			if (event.target.closest(".bucket-action-button")) {
@@ -518,11 +674,18 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 				return;
 			}
 
-			const nextCollapsed = !courseList.classList.contains("is-collapsed");
-			courseList.classList.toggle("is-collapsed", nextCollapsed);
-			header.classList.toggle("is-collapsed", nextCollapsed);
-			wrapper.classList.toggle("is-collapsed", nextCollapsed);
-			bucketCollapseState.set(collapseKey, nextCollapsed);
+			toggleBucketCollapse();
+		});
+
+		header.addEventListener("keydown", (event) => {
+			if (event.key === "Enter" || event.key === " ") {
+				event.preventDefault();
+				if (deleteMode && isDeletable) {
+					toggleBucketDeleteSelection(bucketId, header);
+				} else {
+					toggleBucketCollapse();
+				}
+			}
 		});
 
 		if (bucketId) {
@@ -617,6 +780,11 @@ function renderPlanningTray(plannedCourses, bucketMap) {
 		const chip = document.createElement("div");
 		chip.className = "planner-course-chip";
 		chip.dataset.courseId = course.id;
+		chip.style.borderLeftColor = courseCodeToColor(course.courseCode);
+		chip.setAttribute(
+			"aria-label",
+			`${course.courseCode} — ${course.title || "Untitled"}`,
+		);
 
 		const details = document.createElement("div");
 		details.className = "planner-course-details";
@@ -630,6 +798,14 @@ function renderPlanningTray(plannedCourses, bucketMap) {
 
 		const actions = document.createElement("div");
 		actions.className = "planner-course-actions";
+
+		if (isCourseOnline(course)) {
+			const onlineTag = document.createElement("span");
+			onlineTag.className = "planner-online-tag";
+			onlineTag.textContent = "Online";
+			actions.appendChild(onlineTag);
+		}
+
 		const bucketInfo = course.bucket ? bucketMap.get(course.bucket) : null;
 		if (bucketInfo) {
 			const tag = document.createElement("span");
@@ -644,8 +820,10 @@ function renderPlanningTray(plannedCourses, bucketMap) {
 
 		const removeButton = document.createElement("button");
 		removeButton.type = "button";
-		removeButton.className = "course-inline-action remove";
-		removeButton.textContent = "❌";
+		removeButton.className = "course-icon-btn course-icon-btn--remove";
+		removeButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+		removeButton.ariaLabel = "Remove from calendar";
+		removeButton.title = "Remove from calendar";
 		removeButton.addEventListener("click", (event) => {
 			event.stopPropagation();
 			handlePlannerRemove(course.id);
@@ -667,6 +845,21 @@ function updatePlannerStats(plannedCourses, plannedSchedule) {
 	totalCredits.textContent = `${totalCreditsValue} Credits`;
 	statCourses.textContent = totalPlanned;
 	statHours.textContent = weeklyHours.toFixed(1);
+
+	const statEarliest = document.getElementById("stat-earliest");
+	const statLatest = document.getElementById("stat-latest");
+
+	if (plannedSchedule.length > 0) {
+		const earliest = getEarliestStart(plannedSchedule);
+		const latest = getLatestEnd(plannedSchedule);
+		if (statEarliest)
+			statEarliest.textContent = earliest ? formatTime(earliest) : "—";
+		if (statLatest)
+			statLatest.textContent = latest ? formatTime(latest) : "—";
+	} else {
+		if (statEarliest) statEarliest.textContent = "—";
+		if (statLatest) statLatest.textContent = "—";
+	}
 }
 
 function calculatePlannerConflicts(plannedCourses, plannedSchedule) {
@@ -699,10 +892,35 @@ function calculatePlannerConflicts(plannedCourses, plannedSchedule) {
 	return { conflicts: formatted, conflictCourseIds };
 }
 
-function renderConflictsSidebar(conflicts = [], conflictColorMap = new Map()) {
+function checkIncompleteScheduling(plannedCourses) {
+	const warnings = [];
+	for (const course of plannedCourses) {
+		if (!course.components || course.components.length <= 1) continue;
+
+		const withTime = [];
+		const withoutTime = [];
+		for (const comp of course.components) {
+			if (comp.timeRange && comp.days && comp.days.length > 0) {
+				withTime.push(comp);
+			} else {
+				withoutTime.push(comp);
+			}
+		}
+
+		if (withTime.length > 0 && withoutTime.length > 0) {
+			const missingTypes = [
+				...new Set(withoutTime.map((c) => c.type || "Section")),
+			];
+			warnings.push({ course, missingTypes });
+		}
+	}
+	return warnings;
+}
+
+function renderConflictsSidebar(conflicts = [], conflictColorMap = new Map(), warnings = []) {
 	if (!sidebarConflicts) return;
 
-	if (!conflicts.length) {
+	if (!conflicts.length && !warnings.length) {
 		sidebarConflicts.innerHTML =
 			'<p class="no-conflicts">No conflicts detected</p>';
 		return;
@@ -733,6 +951,14 @@ function renderConflictsSidebar(conflicts = [], conflictColorMap = new Map()) {
 			: `${swatch}<div><strong>${baseCode}</strong><br>Has schedule conflicts</div>`;
 
 		sidebarConflicts.appendChild(conflictItem);
+	}
+
+	for (const warning of warnings) {
+		const warningItem = document.createElement("div");
+		warningItem.className = "warning-item";
+		const missingLabel = warning.missingTypes.join(", ");
+		warningItem.innerHTML = `<span class="warning-icon" aria-hidden="true">⚠</span><div><strong>${warning.course.courseCode}</strong><br>${missingLabel} not scheduled</div>`;
+		sidebarConflicts.appendChild(warningItem);
 	}
 }
 
@@ -959,7 +1185,7 @@ function createCourseBlock(component, bucketDetails, options = {}) {
 	block.style.width = width;
 
 	const bucketInfo = component.bucket ? bucketDetails[component.bucket] : null;
-	const color = bucketInfo?.color || "#57068c";
+	const color = courseCodeToColor(component.courseCode);
 	if (!isConflict) {
 		block.style.backgroundColor = color;
 	} else {
@@ -972,18 +1198,43 @@ function createCourseBlock(component, bucketDetails, options = {}) {
 
 	const startStr = formatTime(component.timeRange.start);
 	const endStr = formatTime(component.timeRange.end);
-	const bucketPill = bucketInfo
-		? `<div class="course-block-tags"><span class="course-block-pill bucket">${bucketInfo.name}</span></div>`
+	const online = isComponentOnline(component);
+	const onlinePill = online
+		? '<span class="course-block-pill online">Online</span>'
 		: "";
+	const bucketPillContent = bucketInfo
+		? `<span class="course-block-pill bucket">${bucketInfo.name}</span>`
+		: "";
+	const typePill =
+		component.type && component.type !== "Lecture"
+			? `<span class="course-block-pill type">${component.type}</span>`
+			: "";
+
+	let ratingPill = "";
+	const profName = component.instructor?.trim();
+	if (
+		profName &&
+		!/^(TBA|to be announced)$/i.test(profName) &&
+		cachedProfRatings[profName] != null
+	) {
+		const num = Number(cachedProfRatings[profName]);
+		const r = num.toFixed(1);
+		const tier = ratingTier(num);
+		ratingPill = `<span class="course-block-pill rating rating-${tier}">★ ${r}</span>`;
+	}
+
+	const allPills =
+		onlinePill || bucketPillContent || typePill || ratingPill
+			? `<div class="course-block-tags">${typePill}${onlinePill}${bucketPillContent}${ratingPill}</div>`
+			: "";
 	const conflictMarker =
 		'<button type="button" class="course-block-conflict-mark" aria-label="Remove course from schedule"><span class="course-block-conflict-glyph" aria-hidden="true">&times;</span></button>';
 	block.innerHTML = `
     ${conflictMarker}
     <div class="course-block-code">${component.courseCode}</div>
-    <div class="course-block-title">${component.courseTitle || ""}</div>
-    <div class="course-block-type">${component.type}</div>
-    ${bucketPill}
     <div class="course-block-time">${startStr} - ${endStr}</div>
+    <div class="course-block-title">${component.courseTitle || ""}</div>
+    ${allPills}
   `;
 
 	const removeButton = block.querySelector(".course-block-conflict-mark");
@@ -1506,6 +1757,23 @@ function setupEventListeners() {
 	metadataDrawerClose?.addEventListener("click", closeCourseMetadataDrawer);
 	metadataDrawerBackdrop?.addEventListener("click", closeCourseMetadataDrawer);
 
+	document
+		.querySelectorAll(
+			".sidebar-section[data-section] > .sidebar-section-header",
+		)
+		.forEach((header) => {
+			header.addEventListener("click", (e) => {
+				if (e.target.closest(".sidebar-actions")) return;
+				toggleSectionCollapse(header.closest(".sidebar-section"));
+			});
+			header.addEventListener("keydown", (e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					toggleSectionCollapse(header.closest(".sidebar-section"));
+				}
+			});
+		});
+
 	calendarGrid?.addEventListener("dragenter", handleCalendarDragEnter);
 	calendarGrid?.addEventListener("dragover", handleCalendarDragOver);
 	calendarGrid?.addEventListener("dragleave", handleCalendarDragLeave);
@@ -1531,6 +1799,14 @@ function setupEventListeners() {
 			clearCourseBlocks();
 			loadSchedule();
 		}
+	});
+
+	document.addEventListener("professor-ratings-changed", async () => {
+		cachedProfRatings = await getProfessorRatings();
+		skipDrawerRefresh = true;
+		clearCourseBlocks();
+		await loadSchedule();
+		skipDrawerRefresh = false;
 	});
 
 	document.addEventListener("keydown", (event) => {

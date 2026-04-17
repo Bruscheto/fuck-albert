@@ -437,6 +437,34 @@ export async function importData(backup) {
 }
 
 /**
+ * Get all professor ratings
+ * @returns {Promise<Object>} Map of professor name -> rating (number)
+ */
+export async function getProfessorRatings() {
+	const result = await chrome.storage.local.get(
+		STORAGE_KEYS.PROFESSOR_RATINGS,
+	);
+	return result[STORAGE_KEYS.PROFESSOR_RATINGS] || {};
+}
+
+/**
+ * Set a single professor's rating
+ * @param {string} name - Professor name
+ * @param {number|null} rating - Rating value (null to remove)
+ */
+export async function setProfessorRating(name, rating) {
+	const ratings = await getProfessorRatings();
+	if (rating === null || rating === undefined || rating === "") {
+		delete ratings[name];
+	} else {
+		ratings[name] = Number(rating);
+	}
+	await chrome.storage.local.set({
+		[STORAGE_KEYS.PROFESSOR_RATINGS]: ratings,
+	});
+}
+
+/**
  * Clear all data
  */
 export async function clearAllData() {

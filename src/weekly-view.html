@@ -38,12 +38,17 @@
                 </svg>
             </button>
             <aside class="sidebar" id="weekly-sidebar">
-                <section class="sidebar-section">
-                    <div class="sidebar-section-header">
+                <section class="sidebar-section" data-section="planning-tray">
+                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle Planning Tray">
                         <h3>Planning Tray</h3>
+                        <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                     </div>
-                    <div id="sidebar-planner" class="sidebar-planner">
-                        <p class="tray-empty">No courses added yet. Use the ＋ buttons or drag from buckets.</p>
+                    <div class="sidebar-section-body">
+                        <div class="sidebar-section-body-inner">
+                            <div id="sidebar-planner" class="sidebar-planner">
+                                <p class="tray-empty">No courses added yet. Use the ＋ buttons or drag from buckets.</p>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -51,14 +56,14 @@
                     <div class="sidebar-section-header">
                         <h3>Buckets</h3>
                         <div class="sidebar-actions">
-                            <button id="btn-add-bucket" class="btn-icon btn-success-icon" title="Add Bucket">
+                            <button id="btn-add-bucket" class="btn-icon btn-success-icon" title="Add Bucket" aria-label="Add bucket">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="12" y1="5" x2="12" y2="19"></line>
                                     <line x1="5" y1="12" x2="19" y2="12"></line>
                                 </svg>
                             </button>
-                            <button id="btn-delete-bucket" class="btn-icon btn-danger-icon" title="Delete Buckets">
+                            <button id="btn-delete-bucket" class="btn-icon btn-danger-icon" title="Delete Buckets" aria-label="Delete buckets">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round">
                                     <polyline points="3 6 5 6 21 6"></polyline>
@@ -74,23 +79,45 @@
                     </div>
                 </section>
 
-                <section class="sidebar-section">
-                    <h3>Conflicts</h3>
-                    <div id="sidebar-conflicts" class="sidebar-conflicts">
-                        <p class="no-conflicts">No conflicts detected</p>
+                <section class="sidebar-section" data-section="conflicts">
+                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle Conflicts">
+                        <h3>Conflicts</h3>
+                        <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                    </div>
+                    <div class="sidebar-section-body">
+                        <div class="sidebar-section-body-inner">
+                            <div id="sidebar-conflicts" class="sidebar-conflicts">
+                                <p class="no-conflicts">No conflicts detected</p>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                <section class="sidebar-section">
-                    <h3>Statistics</h3>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-value" id="stat-courses">0</span>
-                            <span class="stat-label">Courses</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value" id="stat-hours">0</span>
-                            <span class="stat-label">Hours/Week</span>
+                <section class="sidebar-section" data-section="statistics">
+                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle Statistics">
+                        <h3>Statistics</h3>
+                        <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                    </div>
+                    <div class="sidebar-section-body">
+                        <div class="sidebar-section-body-inner">
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-value" id="stat-courses">0</span>
+                                    <span class="stat-label">Courses</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value" id="stat-hours">0</span>
+                                    <span class="stat-label">Hours/Week</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value" id="stat-earliest">—</span>
+                                    <span class="stat-label">Earliest</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value" id="stat-latest">—</span>
+                                    <span class="stat-label">Latest</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -105,23 +132,23 @@
 
                     <!-- Day columns -->
                     <div class="day-column" data-day="Mon">
-                        <div class="day-header">Monday</div>
+                        <div class="day-header">Mon</div>
                         <div class="day-slots" id="slots-Mon"></div>
                     </div>
                     <div class="day-column" data-day="Tue">
-                        <div class="day-header">Tuesday</div>
+                        <div class="day-header">Tue</div>
                         <div class="day-slots" id="slots-Tue"></div>
                     </div>
                     <div class="day-column" data-day="Wed">
-                        <div class="day-header">Wednesday</div>
+                        <div class="day-header">Wed</div>
                         <div class="day-slots" id="slots-Wed"></div>
                     </div>
                     <div class="day-column" data-day="Thu">
-                        <div class="day-header">Thursday</div>
+                        <div class="day-header">Thu</div>
                         <div class="day-slots" id="slots-Thu"></div>
                     </div>
                     <div class="day-column" data-day="Fri">
-                        <div class="day-header">Friday</div>
+                        <div class="day-header">Fri</div>
                         <div class="day-slots" id="slots-Fri"></div>
                     </div>
 
@@ -149,10 +176,7 @@
     <div id="course-metadata-backdrop" class="course-metadata-backdrop"></div>
     <aside id="course-metadata-drawer" class="course-metadata-drawer" aria-hidden="true">
         <div class="course-metadata-drawer-header">
-            <div>
-                <p class="course-metadata-drawer-eyebrow">Course Details</p>
-                <h2 id="course-metadata-drawer-title">Course Metadata</h2>
-            </div>
+            <h2 id="course-metadata-drawer-title">Course Details</h2>
             <button id="course-metadata-close" class="course-metadata-close" type="button" aria-label="Close course metadata panel">✕</button>
         </div>
         <div id="course-metadata-drawer-body" class="course-metadata-drawer-body"></div>

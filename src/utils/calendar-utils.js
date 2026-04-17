@@ -113,3 +113,49 @@ export function calculateWeeklyHours(schedule) {
 
 	return totalMinutes / 60;
 }
+
+/**
+ * Find the earliest class start time across the schedule
+ * @param {object[]} schedule
+ * @returns {{ hours: number, minutes: number } | null}
+ */
+export function getEarliestStart(schedule) {
+	let earliest = null;
+	for (const component of schedule) {
+		if (!component.timeRange) continue;
+		const mins = timeToMinutes(component.timeRange.start);
+		if (earliest === null || mins < earliest) earliest = mins;
+	}
+	if (earliest === null) return null;
+	return { hours: Math.floor(earliest / 60), minutes: earliest % 60 };
+}
+
+/**
+ * Find the latest class end time across the schedule
+ * @param {object[]} schedule
+ * @returns {{ hours: number, minutes: number } | null}
+ */
+export function getLatestEnd(schedule) {
+	let latest = null;
+	for (const component of schedule) {
+		if (!component.timeRange) continue;
+		const mins = timeToMinutes(component.timeRange.end);
+		if (latest === null || mins > latest) latest = mins;
+	}
+	if (latest === null) return null;
+	return { hours: Math.floor(latest / 60), minutes: latest % 60 };
+}
+
+/**
+ * Count unique days that have at least one scheduled class
+ * @param {object[]} schedule
+ * @returns {number}
+ */
+export function getCampusDays(schedule) {
+	const days = new Set();
+	for (const component of schedule) {
+		if (!component.days) continue;
+		for (const day of component.days) days.add(day);
+	}
+	return days.size;
+}

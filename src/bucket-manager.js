@@ -80,6 +80,12 @@ function createBucketElement(bucket, courses, options = {}) {
  * @param {object} options
  * @returns {HTMLElement}
  */
+function isCourseOnline(course) {
+	return course?.components?.some(
+		(c) => c?.room && /\bonline\b/i.test(c.room),
+	) ?? false;
+}
+
 function createCourseElement(course, options = {}) {
 	const { onEditCourse } = options;
 	const div = document.createElement("div");
@@ -89,6 +95,7 @@ function createCourseElement(course, options = {}) {
 
 	const lectureComponent = getLectureComponent(course);
 	const hasRecitation = courseHasRecitation(course);
+	const isOnline = isCourseOnline(course);
 	const timeLabel = formatLectureTime(lectureComponent);
 	const dayDots = renderDayDots(lectureComponent);
 	const creditsLabel = Number.isFinite(course.credits)
@@ -99,6 +106,7 @@ function createCourseElement(course, options = {}) {
 		<div class="course-card-header">
 			<div class="course-code">${course.courseCode}</div>
 			<div class="course-card-actions">
+				${isOnline ? '<span class="course-badge course-badge-online">Online</span>' : ""}
 				${
 					hasRecitation
 						? '<span class="course-badge course-badge-recitation">R</span>'
