@@ -478,9 +478,8 @@ function initPlannerDrawer() {
 	toggle.setAttribute("aria-expanded", "false");
 	toggle.setAttribute("aria-label", "Open Albert Course Planner side panel");
 
-	// Calendar icon
 	toggle.innerHTML = `
-		<span>Planner</span>
+		<span class="ap-path" aria-hidden="true">~/</span><span class="ap-label">planner</span><span class="ap-arrow" aria-hidden="true">→</span>
 	`;
 
 	toggle.addEventListener("click", (e) => {

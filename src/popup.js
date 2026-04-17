@@ -45,6 +45,7 @@
 	);
 	const btnWeeklyView = document.getElementById("btn-weekly-view");
 	const btnFetch = document.getElementById("btn-fetch");
+	const btnFetchLabel = document.getElementById("btn-fetch-label");
 	const btnExport = document.getElementById("btn-export");
 	const btnClear = document.getElementById("btn-clear");
 	const btnSettings = document.getElementById("btn-settings");
@@ -221,7 +222,8 @@
 			const analysis = await analyzeSchedule();
 
 			if (statCoursesCount) {
-				statCoursesCount.textContent = `${analysis.totalCourses} Courses`;
+				const label = analysis.totalCourses === 1 ? "course" : "courses";
+				statCoursesCount.textContent = `${analysis.totalCourses} ${label}`;
 			}
 
 			const [courses, buckets, plannerSelection] = await Promise.all([
@@ -237,11 +239,10 @@
 			if (courses.length === 0) {
 				bucketsContainer.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">📚</div>
+          <p class="empty-state-line">// no courses yet</p>
           <p class="empty-state-text">
-            No courses yet.<br>
-            Open Albert shopping cart, then<br>
-            click "Fetch from Albert" above.
+            open albert shopping cart,<br>
+            then run <span class="empty-state-cmd">fetch from albert</span>.
           </p>
         </div>
       `;
@@ -257,9 +258,9 @@
 		} catch (error) {
 			console.error("[Albert Enhancer] Error loading data:", error);
 			bucketsContainer.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">⚠️</div>
-        <p class="empty-state-text">Error loading courses</p>
+      <div class="empty-state empty-state--error">
+        <p class="empty-state-line">// error</p>
+        <p class="empty-state-text">failed to load courses</p>
       </div>
     `;
 		}
@@ -273,7 +274,7 @@
 
 		if (plannedCourses.length === 0) {
 			planningTrayContainer.innerHTML = `
-				<p class="empty-state-text-small">No courses in "About to Enroll". Add from buckets.</p>
+				<p class="empty-state-text-small">// nothing queued &mdash; drag from buckets</p>
 			`;
 			return;
 		}
@@ -338,9 +339,17 @@
 		});
 	}
 
+	function setFetchLabel(text) {
+		if (btnFetchLabel) {
+			btnFetchLabel.textContent = text;
+		} else {
+			btnFetch.textContent = text;
+		}
+	}
+
 	async function handleFetch() {
 		btnFetch.disabled = true;
-		btnFetch.textContent = "⏳ Fetching...";
+		setFetchLabel("fetching...");
 
 		try {
 			const [tab] = await chrome.tabs.query({
@@ -410,10 +419,10 @@
 					await setPlannerSelection(validPlannerSelection);
 				}
 
-				btnFetch.textContent = `✅ Found ${response.courses.length} courses`;
+				setFetchLabel(`fetched ${response.courses.length} courses`);
 				await loadData();
 			} else {
-				btnFetch.textContent = "❌ No courses found";
+				setFetchLabel("no courses found");
 				const errorMsg = response.error || "No courses found in shopping cart.";
 				alert(
 					errorMsg +
@@ -422,7 +431,7 @@
 			}
 		} catch (error) {
 			console.error("[Albert Enhancer] Fetch failed:", error);
-			btnFetch.textContent = "❌ Fetch failed";
+			setFetchLabel("fetch failed");
 			alert(
 				error.message ||
 					"Failed to fetch courses.\nMake sure you're on Albert's Shopping Cart page and try refreshing the page.",
@@ -430,7 +439,7 @@
 		} finally {
 			setTimeout(() => {
 				btnFetch.disabled = false;
-				btnFetch.textContent = "📥 Fetch from Albert";
+				setFetchLabel("fetch from albert");
 			}, 2000);
 		}
 	}

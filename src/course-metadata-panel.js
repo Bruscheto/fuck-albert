@@ -76,7 +76,7 @@ function buildStatusTags(context) {
 	}
 
 	if (online) {
-		tags.push({ text: "Online", cls: "status-online" });
+		tags.push({ text: "~online", cls: "status-online" });
 	}
 
 	if (isPlanned && conflictCodes.length > 0) {

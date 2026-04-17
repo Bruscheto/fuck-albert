@@ -113,42 +113,122 @@
 
 #albert-planner-toggle {
 	position: fixed;
-	bottom: 30px;
-	right: 30px;
-	height: 48px;
-	padding: 0 24px;
-	background: #57068c;
-	color: white;
-	border-radius: 24px;
-	border: none;
-	box-shadow: 0 10px 25px -5px rgba(87, 6, 140, 0.5),
-		0 8px 10px -6px rgba(87, 6, 140, 0.1);
-	display: flex;
+	bottom: 28px;
+	right: 28px;
+	height: 38px;
+	padding: 0 14px;
+	display: inline-flex;
 	align-items: center;
-	justify-content: center;
+	gap: 1px;
+	background: rgba(20, 10, 36, 0.92);
+	backdrop-filter: blur(14px) saturate(140%);
+	-webkit-backdrop-filter: blur(14px) saturate(140%);
+	color: rgba(255, 255, 255, 0.95);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 10px;
 	cursor: pointer;
 	z-index: 2147483647;
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-		Arial, sans-serif;
-	transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s;
+	font-family: "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", "Consolas",
+		monospace;
+	font-size: 13px;
+	font-weight: 500;
+	letter-spacing: 0.01em;
+	line-height: 1;
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.06),
+		0 8px 24px rgba(13, 5, 24, 0.35);
+	transition:
+		transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		background-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 #albert-planner-toggle:hover {
 	transform: translateY(-2px);
-	box-shadow: 0 20px 25px -5px rgba(87, 6, 140, 0.4),
-		0 10px 10px -5px rgba(87, 6, 140, 0.1);
-	background: #4c057a;
+	background: rgba(30, 18, 50, 0.95);
+	border-color: rgba(168, 85, 247, 0.4);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.08),
+		0 14px 32px rgba(13, 5, 24, 0.45),
+		0 0 0 3px rgba(168, 85, 247, 0.12);
 }
 
 #albert-planner-toggle:active {
-	transform: translateY(0);
-	box-shadow: 0 5px 10px -2px rgba(87, 6, 140, 0.3);
+	transform: translateY(0) scale(0.98);
+	transition-duration: 0.08s;
 }
 
-#albert-planner-toggle span {
-	font-size: 15px;
-	font-weight: 600;
-	letter-spacing: 0.5px;
+#albert-planner-toggle:focus-visible {
+	outline: none;
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.08),
+		0 10px 28px rgba(13, 5, 24, 0.45),
+		0 0 0 2px rgba(20, 10, 36, 0.92),
+		0 0 0 4px rgba(168, 85, 247, 0.85);
+}
+
+#albert-planner-toggle[disabled] {
+	cursor: not-allowed;
+	opacity: 0.55;
+	transform: none;
+}
+
+#albert-planner-toggle .ap-path {
+	color: rgba(191, 149, 243, 0.75);
+	font-weight: 500;
+}
+
+#albert-planner-toggle .ap-label {
+	color: rgba(255, 255, 255, 0.95);
+	font-weight: 500;
+	letter-spacing: 0.01em;
+}
+
+#albert-planner-toggle .ap-arrow {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin-left: 6px;
+	color: rgba(255, 255, 255, 0.5);
+	font-size: 14px;
+	line-height: 1;
+	transform: translateX(-4px);
+	opacity: 0;
+	max-width: 0;
+	overflow: hidden;
+	transition:
+		transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		max-width 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		margin-left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		color 0.22s ease;
+}
+
+#albert-planner-toggle:hover .ap-arrow,
+#albert-planner-toggle:focus-visible .ap-arrow {
+	opacity: 1;
+	transform: translateX(0);
+	max-width: 20px;
+	color: rgba(191, 149, 243, 1);
+}
+
+@keyframes ap-cursor-blink {
+	0%, 60% { opacity: 1; }
+	61%, 100% { opacity: 0; }
+}
+
+#albert-planner-toggle .ap-label::after {
+	content: "_";
+	display: inline-block;
+	margin-left: 1px;
+	color: rgba(191, 149, 243, 0.9);
+	animation: ap-cursor-blink 1.2s steps(1) infinite;
+}
+
+#albert-planner-toggle:hover .ap-label::after {
+	animation: none;
+	opacity: 0;
 }
 
 @media (max-width: 900px) {

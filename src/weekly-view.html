@@ -23,7 +23,11 @@
                     </svg>
                     Weekly Schedule
                 </h1>
-                <span class="credits-badge" id="total-credits">0 Credits</span>
+                <span class="credits-badge">
+                    <span class="credits-badge-dot" aria-hidden="true"></span>
+                    <span class="credits-badge-label">Credits</span>
+                    <span class="credits-badge-value" id="total-credits">0</span>
+                </span>
             </div>
         </header>
 
@@ -39,14 +43,14 @@
             </button>
             <aside class="sidebar" id="weekly-sidebar">
                 <section class="sidebar-section" data-section="planning-tray">
-                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle Planning Tray">
-                        <h3>Planning Tray</h3>
+                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle planner">
+                        <h3><span class="sidebar-section-prefix" aria-hidden="true">//</span> planner</h3>
                         <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                     </div>
                     <div class="sidebar-section-body">
                         <div class="sidebar-section-body-inner">
                             <div id="sidebar-planner" class="sidebar-planner">
-                                <p class="tray-empty">No courses added yet. Use the ＋ buttons or drag from buckets.</p>
+                                <p class="tray-empty">// nothing queued &mdash; drag from buckets</p>
                             </div>
                         </div>
                     </div>
@@ -54,16 +58,16 @@
 
                 <section class="sidebar-section">
                     <div class="sidebar-section-header">
-                        <h3>Buckets</h3>
+                        <h3><span class="sidebar-section-prefix" aria-hidden="true">//</span> buckets</h3>
                         <div class="sidebar-actions">
-                            <button id="btn-add-bucket" class="btn-icon btn-success-icon" title="Add Bucket" aria-label="Add bucket">
+                            <button id="btn-add-bucket" class="btn-icon btn-success-icon" title="Add bucket" aria-label="Add bucket">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="12" y1="5" x2="12" y2="19"></line>
                                     <line x1="5" y1="12" x2="19" y2="12"></line>
                                 </svg>
                             </button>
-                            <button id="btn-delete-bucket" class="btn-icon btn-danger-icon" title="Delete Buckets" aria-label="Delete buckets">
+                            <button id="btn-delete-bucket" class="btn-icon btn-danger-icon" title="Delete buckets" aria-label="Delete buckets">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round">
                                     <polyline points="3 6 5 6 21 6"></polyline>
@@ -80,42 +84,42 @@
                 </section>
 
                 <section class="sidebar-section" data-section="conflicts">
-                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle Conflicts">
-                        <h3>Conflicts</h3>
+                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle conflicts">
+                        <h3><span class="sidebar-section-prefix" aria-hidden="true">//</span> conflicts</h3>
                         <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                     </div>
                     <div class="sidebar-section-body">
                         <div class="sidebar-section-body-inner">
                             <div id="sidebar-conflicts" class="sidebar-conflicts">
-                                <p class="no-conflicts">No conflicts detected</p>
+                                <p class="no-conflicts">// no conflicts detected</p>
                             </div>
                         </div>
                     </div>
                 </section>
 
                 <section class="sidebar-section" data-section="statistics">
-                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle Statistics">
-                        <h3>Statistics</h3>
+                    <div class="sidebar-section-header" role="button" tabindex="0" aria-label="Toggle stats">
+                        <h3><span class="sidebar-section-prefix" aria-hidden="true">//</span> stats</h3>
                         <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                     </div>
                     <div class="sidebar-section-body">
                         <div class="sidebar-section-body-inner">
                             <div class="stats-grid">
                                 <div class="stat-item">
+                                    <span class="stat-label">courses</span>
                                     <span class="stat-value" id="stat-courses">0</span>
-                                    <span class="stat-label">Courses</span>
                                 </div>
                                 <div class="stat-item">
+                                    <span class="stat-label">hours/wk</span>
                                     <span class="stat-value" id="stat-hours">0</span>
-                                    <span class="stat-label">Hours/Week</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-value" id="stat-earliest">—</span>
-                                    <span class="stat-label">Earliest</span>
+                                    <span class="stat-label">earliest</span>
+                                    <span class="stat-value stat-value-time" id="stat-earliest">—</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-value" id="stat-latest">—</span>
-                                    <span class="stat-label">Latest</span>
+                                    <span class="stat-label">latest</span>
+                                    <span class="stat-value stat-value-time" id="stat-latest">—</span>
                                 </div>
                             </div>
                         </div>

@@ -22,6 +22,7 @@ import {
 	findConflicts,
 	getEarliestStart,
 	getLatestEnd,
+	hasConflict,
 } from "./utils/calendar-utils.js";
 import { formatTime, timeToMinutes } from "./utils/time-parser.js";
 import { CALENDAR_CONFIG } from "./utils/constants.js";
@@ -116,6 +117,9 @@ let activeMetadataCourseId = null;
 let lastCourseBlockDragEndedAt = 0;
 let isSidebarOpen = true;
 let cachedPlannedSchedule = [];
+let dragPreviewGhosts = [];
+let dragPreviewPill = null;
+let dragPreviewCursorHandler = null;
 let cachedProfRatings = {};
 let skipDrawerRefresh = false;
 
@@ -377,9 +381,16 @@ async function init() {
 	applySectionCollapseStates();
 	generateTimeLabels();
 	generateHourLines();
+	generateQuarterTicks();
+	renderTimeAnchors();
+	mountNowIndicator();
+	updateNowIndicator();
+	setInterval(updateNowIndicator, 60 * 1000);
 	await loadSchedule();
 	setupEventListeners();
 }
+
+const HEADER_OFFSET = 44; // matches .day-header / .time-header-spacer height
 
 function generateTimeLabels() {
 	timeColumn.innerHTML = "";
@@ -391,9 +402,10 @@ function generateTimeLabels() {
 	for (let hour = START_HOUR; hour < END_HOUR; hour++) {
 		const label = document.createElement("div");
 		label.className = "time-label";
-		const period = hour >= 12 ? "PM" : "AM";
 		const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-		label.textContent = `${displayHour} ${period}`;
+		const suffix =
+			hour === 12 ? "p" : hour > 12 ? "p" : hour === 0 ? "a" : "a";
+		label.innerHTML = `<span class="time-label-num">${displayHour}</span><span class="time-label-meridiem">${suffix}</span>`;
 		timeColumn.appendChild(label);
 	}
 }
@@ -411,6 +423,92 @@ function generateHourLines() {
 			slotsContainer.appendChild(line);
 		}
 	}
+}
+
+function generateQuarterTicks() {
+	const hours = END_HOUR - START_HOUR;
+	for (const day of DAYS) {
+		const slotsContainer = document.getElementById(`slots-${day}`);
+		if (!slotsContainer) continue;
+		for (let offset = 0; offset < hours; offset++) {
+			for (const q of [15, 30, 45]) {
+				const tick = document.createElement("div");
+				tick.className = "quarter-tick";
+				if (q === 30) tick.classList.add("is-half");
+				tick.style.top = `${offset * HOUR_HEIGHT + (q / 60) * HOUR_HEIGHT}px`;
+				slotsContainer.appendChild(tick);
+			}
+		}
+	}
+}
+
+function renderTimeAnchors() {
+	const grid = calendarGrid;
+	if (!grid) return;
+	for (const old of grid.querySelectorAll(".time-anchor")) old.remove();
+
+	const anchors = [
+		{ hour: 12, label: "NOON" },
+		{ hour: 17, label: "EVE" },
+	];
+	for (const a of anchors) {
+		if (a.hour < START_HOUR || a.hour >= END_HOUR) continue;
+		const el = document.createElement("div");
+		el.className = "time-anchor";
+		el.textContent = a.label;
+		const top = HEADER_OFFSET + ((a.hour - START_HOUR) * 60 / 60) * HOUR_HEIGHT;
+		el.style.top = `${top}px`;
+		el.setAttribute("aria-hidden", "true");
+		grid.appendChild(el);
+	}
+}
+
+function mountNowIndicator() {
+	if (!calendarGrid) return;
+	if (calendarGrid.querySelector(".now-indicator")) return;
+	const wrap = document.createElement("div");
+	wrap.className = "now-indicator";
+	wrap.setAttribute("aria-hidden", "true");
+	wrap.hidden = true;
+	const dot = document.createElement("span");
+	dot.className = "now-indicator-dot";
+	wrap.appendChild(dot);
+	const pill = document.createElement("span");
+	pill.className = "now-indicator-pill";
+	wrap.appendChild(pill);
+	calendarGrid.appendChild(wrap);
+}
+
+function updateNowIndicator() {
+	const wrap = calendarGrid?.querySelector(".now-indicator");
+	if (!wrap) return;
+	const now = new Date();
+	const weekdayIndex = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+	const todayCol = weekdayIndex - 1; // 0=Mon ... 4=Fri
+	const hours = now.getHours();
+	const minutes = now.getMinutes();
+	const nowMinutes = hours * 60 + minutes;
+	const startMinutes = START_HOUR * 60;
+	const endMinutes = END_HOUR * 60;
+
+	const inRange =
+		todayCol >= 0 && todayCol <= 4 && nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+	if (!inRange) {
+		wrap.hidden = true;
+		return;
+	}
+	const top =
+		HEADER_OFFSET + ((nowMinutes - startMinutes) / 60) * HOUR_HEIGHT;
+	wrap.style.top = `${top}px`;
+	wrap.style.setProperty("--today-col", String(todayCol));
+	const pill = wrap.querySelector(".now-indicator-pill");
+	if (pill) {
+		const h12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+		const mm = String(minutes).padStart(2, "0");
+		const meridiem = hours >= 12 ? "p" : "a";
+		pill.textContent = `${h12}:${mm}${meridiem}`;
+	}
+	wrap.hidden = false;
 }
 
 async function loadSchedule() {
@@ -478,7 +576,7 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 		const helper = document.createElement("p");
 		helper.className = "bucket-helper-text";
 		helper.textContent =
-			"Organize courses into groups to compare schedule options.";
+			"// organize courses into groups to compare schedule options";
 		sidebarBuckets.appendChild(helper);
 	}
 
@@ -523,8 +621,17 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 		header.dataset.bucketId = collapseKey;
 		const actionButtons = bucketId
 			? `
-				<button type="button" class="bucket-action-button bucket-rename-button" title="Rename bucket" aria-label="Rename bucket">✏️</button>
-				<button type="button" class="bucket-action-button bucket-color-button" title="Change color" aria-label="Change bucket color">🎨</button>
+				<button type="button" class="bucket-action-button bucket-rename-button" title="Rename bucket" aria-label="Rename bucket">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M12 20h9"/>
+						<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+					</svg>
+				</button>
+				<button type="button" class="bucket-action-button bucket-color-button" title="Change color" aria-label="Change bucket color">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+					</svg>
+				</button>
 			`
 			: "";
 		header.innerHTML = `
@@ -571,7 +678,7 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 		if (courses.length === 0) {
 			const empty = document.createElement("div");
 			empty.className = "bucket-course-empty";
-			empty.textContent = "No courses";
+			empty.textContent = "// empty";
 			courseListInner.appendChild(empty);
 		} else {
 			for (const course of courses) {
@@ -591,12 +698,12 @@ function renderBucketsSidebar(byBucket, plannedSet = new Set()) {
 
 				const body = document.createElement("div");
 				body.className = "course-entry-body";
-				const onlineBadge = isCourseOnline(course)
-					? '<span class="course-online-badge">Online</span>'
+				const onlineTag = isCourseOnline(course)
+					? ' <span class="course-online-tag" title="Online course">~online</span>'
 					: "";
 				body.innerHTML = `
 					<strong>${course.courseCode}</strong>
-					<span>${course.title}${onlineBadge}</span>
+					<span>${course.title}${onlineTag}</span>
 				`;
 
 				const footer = document.createElement("div");
@@ -771,7 +878,7 @@ function renderPlanningTray(plannedCourses, bucketMap) {
 		const empty = document.createElement("p");
 		empty.className = "tray-empty";
 		empty.textContent =
-			"No courses added yet. Use the ＋ buttons or drag from buckets.";
+			"// nothing queued — drag from buckets or use the + icons";
 		sidebarPlanner.appendChild(empty);
 		return;
 	}
@@ -801,8 +908,9 @@ function renderPlanningTray(plannedCourses, bucketMap) {
 
 		if (isCourseOnline(course)) {
 			const onlineTag = document.createElement("span");
-			onlineTag.className = "planner-online-tag";
-			onlineTag.textContent = "Online";
+			onlineTag.className = "course-online-tag";
+			onlineTag.textContent = "~online";
+			onlineTag.title = "Online course";
 			actions.appendChild(onlineTag);
 		}
 
@@ -842,7 +950,7 @@ function updatePlannerStats(plannedCourses, plannedSchedule) {
 		0,
 	);
 	const weeklyHours = calculateWeeklyHours(plannedSchedule);
-	totalCredits.textContent = `${totalCreditsValue} Credits`;
+	totalCredits.textContent = totalCreditsValue;
 	statCourses.textContent = totalPlanned;
 	statHours.textContent = weeklyHours.toFixed(1);
 
@@ -922,7 +1030,7 @@ function renderConflictsSidebar(conflicts = [], conflictColorMap = new Map(), wa
 
 	if (!conflicts.length && !warnings.length) {
 		sidebarConflicts.innerHTML =
-			'<p class="no-conflicts">No conflicts detected</p>';
+			'<p class="no-conflicts">// no conflicts detected</p>';
 		return;
 	}
 
@@ -1199,9 +1307,7 @@ function createCourseBlock(component, bucketDetails, options = {}) {
 	const startStr = formatTime(component.timeRange.start);
 	const endStr = formatTime(component.timeRange.end);
 	const online = isComponentOnline(component);
-	const onlinePill = online
-		? '<span class="course-block-pill online">Online</span>'
-		: "";
+	if (online) block.classList.add("is-online");
 	const bucketPillContent = bucketInfo
 		? `<span class="course-block-pill bucket">${bucketInfo.name}</span>`
 		: "";
@@ -1220,15 +1326,15 @@ function createCourseBlock(component, bucketDetails, options = {}) {
 		const num = Number(cachedProfRatings[profName]);
 		const r = num.toFixed(1);
 		const tier = ratingTier(num);
-		ratingPill = `<span class="course-block-pill rating rating-${tier}">★ ${r}</span>`;
+		ratingPill = `<span class="course-block-pill rating rating-${tier}">${r}</span>`;
 	}
 
 	const allPills =
-		onlinePill || bucketPillContent || typePill || ratingPill
-			? `<div class="course-block-tags">${typePill}${onlinePill}${bucketPillContent}${ratingPill}</div>`
+		bucketPillContent || typePill || ratingPill
+			? `<div class="course-block-tags">${typePill}${bucketPillContent}${ratingPill}</div>`
 			: "";
 	const conflictMarker =
-		'<button type="button" class="course-block-conflict-mark" aria-label="Remove course from schedule"><span class="course-block-conflict-glyph" aria-hidden="true">&times;</span></button>';
+		'<button type="button" class="course-block-remove-btn" aria-label="Remove course from schedule" title="Remove from schedule"><svg class="course-block-remove-icon" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>';
 	block.innerHTML = `
     ${conflictMarker}
     <div class="course-block-code">${component.courseCode}</div>
@@ -1237,7 +1343,7 @@ function createCourseBlock(component, bucketDetails, options = {}) {
     ${allPills}
   `;
 
-	const removeButton = block.querySelector(".course-block-conflict-mark");
+	const removeButton = block.querySelector(".course-block-remove-btn");
 	if (removeButton) {
 		removeButton.addEventListener("pointerdown", (event) => {
 			event.preventDefault();
@@ -1252,7 +1358,7 @@ function createCourseBlock(component, bucketDetails, options = {}) {
 	}
 
 	block.addEventListener("click", (event) => {
-		if (event.target.closest(".course-block-conflict-mark")) {
+		if (event.target.closest(".course-block-remove-btn")) {
 			return;
 		}
 		if (Date.now() - lastCourseBlockDragEndedAt < 200) {
@@ -1309,11 +1415,13 @@ function handleBucketCourseDragStart(event) {
 	event.dataTransfer?.setData("text/plain", courseId);
 	event.dataTransfer.effectAllowed = "copyMove";
 	entry?.classList.add("is-dragging");
+	showDragPreview(courseId);
 }
 
 function handleBucketCourseDragEnd(event) {
 	const entry = event.currentTarget.closest(".bucket-course-entry");
 	entry?.classList.remove("is-dragging");
+	hideDragPreview();
 	resetDragPayload();
 }
 
@@ -1402,6 +1510,7 @@ function handleCalendarDragLeave(event) {
 async function handleCalendarDrop(event) {
 	event.preventDefault();
 	calendarGrid?.classList.remove("drag-over");
+	hideDragPreview();
 
 	// Try to get course ID from global state or dataTransfer
 	let courseId = draggedCourseId;
@@ -1438,6 +1547,138 @@ function resetDragPayload() {
 	draggedFromBucketId = null;
 }
 
+function showDragPreview(courseId) {
+	hideDragPreview();
+	const course = coursesById.get(courseId);
+	if (!course || !Array.isArray(course.components)) return;
+
+	const alreadyAdded = plannerSelectionSet.has(courseId);
+	const accentColor = courseCodeToColor(course.courseCode || course.id);
+	let totalSlots = 0;
+	let conflictSlots = 0;
+	const componentSummaries = [];
+
+	for (const component of course.components) {
+		if (!component.timeRange || !component.days?.length) continue;
+
+		const startMinutes = timeToMinutes(component.timeRange.start);
+		const endMinutes = timeToMinutes(component.timeRange.end);
+		if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) continue;
+
+		const top = ((startMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+		const height = ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT;
+
+		const componentConflicts =
+			!alreadyAdded && hasConflict(component, cachedPlannedSchedule);
+		componentSummaries.push({
+			type: component.type || "Class",
+			days: component.days.join("/"),
+			start: formatTime(component.timeRange.start),
+			end: formatTime(component.timeRange.end),
+			conflict: componentConflicts,
+		});
+
+		if (alreadyAdded) continue;
+
+		for (const day of component.days) {
+			const slotsContainer = document.getElementById(`slots-${day}`);
+			if (!slotsContainer) continue;
+			totalSlots++;
+			if (componentConflicts) conflictSlots++;
+
+			const ghost = document.createElement("div");
+			ghost.className = "course-block-ghost";
+			if (componentConflicts) ghost.classList.add("is-conflict");
+			ghost.style.top = `${top}px`;
+			ghost.style.height = `${Math.max(height, 18)}px`;
+			ghost.style.setProperty("--ghost-accent", accentColor);
+
+			const typeLabel = (component.type || "Class").toUpperCase();
+			const timeLabel = `${formatTime(component.timeRange.start)} – ${formatTime(component.timeRange.end)}`;
+			ghost.innerHTML = `
+				<div class="course-block-ghost-head">
+					<span class="course-block-ghost-code">${course.courseCode || ""}</span>
+					<span class="course-block-ghost-type">${typeLabel}</span>
+				</div>
+				<div class="course-block-ghost-time">${timeLabel}</div>
+				${componentConflicts ? '<span class="course-block-ghost-mark" aria-hidden="true">✕</span>' : ""}
+			`;
+			slotsContainer.appendChild(ghost);
+			dragPreviewGhosts.push(ghost);
+		}
+	}
+
+	const pill = document.createElement("div");
+	pill.className = "drag-cursor-pill";
+	if (alreadyAdded) {
+		pill.classList.add("is-added");
+	} else {
+		pill.classList.add(conflictSlots > 0 ? "is-conflict" : "is-ok");
+	}
+
+	const metaHtml = componentSummaries
+		.map(
+			(c) =>
+				`<div class="drag-cursor-pill-line${c.conflict ? " is-conflict" : ""}">
+					<span class="drag-cursor-pill-type">${c.type}</span>
+					<span class="drag-cursor-pill-when">${c.days} · ${c.start}–${c.end}</span>
+				</div>`,
+		)
+		.join("");
+
+	let statusLabel;
+	let statusGlyph;
+	if (alreadyAdded) {
+		statusLabel = "already on calendar";
+		statusGlyph = "●";
+	} else if (conflictSlots > 0) {
+		statusLabel = `${conflictSlots} conflict${conflictSlots > 1 ? "s" : ""}`;
+		statusGlyph = "✕";
+	} else {
+		statusLabel = `${totalSlots || 0} slot${totalSlots === 1 ? "" : "s"} clear`;
+		statusGlyph = "✓";
+	}
+
+	pill.innerHTML = `
+		<div class="drag-cursor-pill-head">
+			<span class="drag-cursor-pill-code">${course.courseCode || ""}</span>
+			${course.title ? `<span class="drag-cursor-pill-title">${course.title}</span>` : ""}
+		</div>
+		${metaHtml ? `<div class="drag-cursor-pill-body">${metaHtml}</div>` : ""}
+		<div class="drag-cursor-pill-status">
+			<span class="drag-cursor-pill-glyph" aria-hidden="true">${statusGlyph}</span>
+			<span>${statusLabel}</span>
+		</div>
+	`;
+	document.body.appendChild(pill);
+	dragPreviewPill = pill;
+	document.body.classList.add("is-drag-preview-active");
+
+	dragPreviewCursorHandler = (e) => {
+		if (!dragPreviewPill) return;
+		if (e.clientX === 0 && e.clientY === 0) return;
+		dragPreviewPill.style.transform = `translate3d(${e.clientX + 18}px, ${e.clientY + 18}px, 0)`;
+		if (!dragPreviewPill.classList.contains("is-visible")) {
+			dragPreviewPill.classList.add("is-visible");
+		}
+	};
+	document.addEventListener("dragover", dragPreviewCursorHandler);
+}
+
+function hideDragPreview() {
+	for (const ghost of dragPreviewGhosts) ghost.remove();
+	dragPreviewGhosts = [];
+	if (dragPreviewPill) {
+		dragPreviewPill.remove();
+		dragPreviewPill = null;
+	}
+	if (dragPreviewCursorHandler) {
+		document.removeEventListener("dragover", dragPreviewCursorHandler);
+		dragPreviewCursorHandler = null;
+	}
+	document.body.classList.remove("is-drag-preview-active");
+}
+
 // ============ Planner & Bucket Actions ============
 
 async function handlePlannerAdd(courseId) {
@@ -1466,9 +1707,9 @@ async function handleBucketCreate() {
 		if (input) input.focus();
 	}, 100);
 
-	const result = await showModal("Create New Bucket", content, [
-		{ label: "Cancel", value: null },
-		{ label: "Create", value: "create", primary: true },
+	const result = await showModal("// new bucket", content, [
+		{ label: "cancel", value: null },
+		{ label: "create", value: "create", primary: true },
 	]);
 
 	if (result !== "create") return;
@@ -1500,58 +1741,77 @@ async function handleBucketCreate() {
 }
 
 async function handleBucketRecolor(bucket) {
-	const colors = [
-		"#57068c", // NYU Purple
-		"#ef4444", // Red
-		"#f97316", // Orange
-		"#f59e0b", // Amber
-		"#84cc16", // Lime
-		"#10b981", // Emerald
-		"#06b6d4", // Cyan
-		"#3b82f6", // Blue
-		"#6366f1", // Indigo
-		"#d946ef", // Fuchsia
+	const palette = [
+		{ hex: "#57068c", name: "purple" },
+		{ hex: "#ef4444", name: "red" },
+		{ hex: "#f97316", name: "orange" },
+		{ hex: "#f59e0b", name: "amber" },
+		{ hex: "#84cc16", name: "lime" },
+		{ hex: "#10b981", name: "emerald" },
+		{ hex: "#06b6d4", name: "cyan" },
+		{ hex: "#3b82f6", name: "blue" },
+		{ hex: "#6366f1", name: "indigo" },
+		{ hex: "#d946ef", name: "fuchsia" },
 	];
 
+	const normalizedCurrent = (bucket.color || "").toLowerCase();
+
 	const content = document.createElement("div");
-	content.className = "color-grid";
+	content.className = "color-picker";
 
-	// Helper to save and close
+	const hint = document.createElement("p");
+	hint.className = "color-picker-hint";
+	hint.textContent = "// click a swatch to apply";
+	content.appendChild(hint);
+
+	const grid = document.createElement("div");
+	grid.className = "color-grid";
+	content.appendChild(grid);
+
 	const saveColor = async (color) => {
-		// Close modal programmatically by clicking the close button or overlay
-		// Since showModal returns a promise that resolves when closed, we need to trigger that close.
-		// The simplest way with current showModal implementation is to find the close button and click it,
-		// but we need to pass the result back.
-		// However, showModal resolves with the button value.
-		// We can modify showModal to expose a close method, or just update the bucket here and then close.
-		// But showModal waits for user interaction.
-
-		// Let's update the bucket first
 		if (color !== bucket.color) {
 			await updateBucket(bucket.id, { color });
 			await loadSchedule();
 			showToast("Bucket color updated", "success");
 		}
-
-		// Now close the modal. We can simulate a click on the close button which resolves with null.
-		// But we've already done the work, so null is fine.
 		const closeBtn = document.getElementById("modal-close");
 		if (closeBtn) closeBtn.click();
 	};
 
-	colors.forEach((color) => {
-		const option = document.createElement("div");
+	palette.forEach(({ hex, name }) => {
+		const option = document.createElement("button");
+		option.type = "button";
 		option.className = "color-option";
-		option.style.backgroundColor = color;
-		if (color === bucket.color) {
+		option.setAttribute("aria-label", `${name} — ${hex}`);
+		option.title = `${name} · ${hex}`;
+
+		const isSelected = hex.toLowerCase() === normalizedCurrent;
+		if (isSelected) {
 			option.classList.add("is-selected");
+			option.setAttribute("aria-pressed", "true");
+		} else {
+			option.setAttribute("aria-pressed", "false");
 		}
-		option.onclick = () => saveColor(color);
-		content.appendChild(option);
+
+		option.innerHTML = `
+			<span class="color-option-swatch" style="background: ${hex}">
+				<svg class="color-option-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<polyline points="20 6 9 17 4 12"></polyline>
+				</svg>
+			</span>
+			<span class="color-option-meta">
+				<span class="color-option-name">${name}</span>
+				<span class="color-option-hex">${hex}</span>
+			</span>
+		`;
+
+		option.addEventListener("click", () => saveColor(hex));
+		grid.appendChild(option);
 	});
 
-	// We don't need a Save button anymore, just Cancel/Close
-	await showModal("Select Color", content, [{ label: "Cancel", value: null }]);
+	await showModal("// bucket color", content, [
+		{ label: "cancel", value: null },
+	]);
 }
 
 function normalizeColorInput(input, fallback = "#57068c") {
@@ -1734,9 +1994,9 @@ async function deleteSelectedBuckets() {
 			? "Delete selected bucket? Its courses will move to Unsorted."
 			: `Delete ${ids.length} buckets? Their courses will move to Unsorted.`;
 
-	const confirmed = await showModal("Delete Buckets", message, [
-		{ label: "Cancel", value: false },
-		{ label: "Delete", value: true, danger: true },
+	const confirmed = await showModal("// delete buckets", message, [
+		{ label: "cancel", value: false },
+		{ label: "delete", value: true, danger: true },
 	]);
 
 	if (!confirmed) return;
