@@ -23,6 +23,7 @@
 		setPlannerSelection,
 		exportData,
 		assignCourseToBucket,
+		getProfessorRatings,
 	} = courseStorage;
 	const { analyzeSchedule } = plannerModule;
 	const { renderBuckets } = bucketModule;
@@ -68,6 +69,7 @@
 	let currentCourses = [];
 	let currentBuckets = [];
 	let activeMetadataCourseId = null;
+	let cachedProfRatings = {};
 
 	function scheduleLoadData() {
 		if (loadDataDebounceTimer) {
@@ -158,6 +160,7 @@
 			container: metadataDrawerBody,
 			course,
 			buckets: currentBuckets,
+			ratings: cachedProfRatings,
 			onBucketSelect: async (bucketId) => {
 				if ((course.bucket ?? null) === (bucketId ?? null)) {
 					return;
@@ -177,6 +180,10 @@
 		}
 		document.body.classList.add("metadata-drawer-open");
 		metadataDrawer?.setAttribute("aria-hidden", "false");
+		// Scroll to top so the drawer is visible
+		document.querySelector(".scrollable-content")?.scrollTo(0, 0);
+		document.documentElement.scrollTop = 0;
+		document.body.scrollTop = 0;
 	}
 
 	async function requestParseCart(tabId) {
@@ -226,13 +233,15 @@
 				statCoursesCount.textContent = `${analysis.totalCourses} ${label}`;
 			}
 
-			const [courses, buckets, plannerSelection] = await Promise.all([
+			const [courses, buckets, plannerSelection, profRatings] = await Promise.all([
 				getCourses(),
 				getBuckets(),
 				getPlannerSelection(),
+				getProfessorRatings(),
 			]);
 			currentCourses = courses;
 			currentBuckets = buckets;
+			cachedProfRatings = profRatings;
 
 			renderPlanningTray(courses, plannerSelection);
 
@@ -333,8 +342,15 @@
 
 	function listenForUpdates() {
 		chrome.storage.onChanged.addListener((changes, namespace) => {
-			if (namespace === "local" && (changes.courses || changes.buckets)) {
+			if (namespace === "local" && (changes.courses || changes.buckets || changes.professorRatings)) {
 				scheduleLoadData();
+			}
+		});
+
+		document.addEventListener("professor-ratings-changed", async () => {
+			cachedProfRatings = await getProfessorRatings();
+			if (activeMetadataCourseId) {
+				renderCourseMetadataDrawer();
 			}
 		});
 	}

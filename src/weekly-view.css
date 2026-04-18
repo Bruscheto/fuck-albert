@@ -115,93 +115,177 @@ h4 {
 /* ── Header ── */
 .weekly-header {
 	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 14px 24px 10px;
+	background: var(--card-bg-solid);
+	color: var(--text-primary);
+	z-index: 20;
+	border-bottom: 1px solid var(--border-color);
+	position: relative;
+}
+
+.weekly-header::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: -1px;
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		transparent 0,
+		rgba(87, 6, 140, 0.35) 24px,
+		rgba(87, 6, 140, 0.35) calc(100% - 24px),
+		transparent 100%
+	);
+	pointer-events: none;
+}
+
+.header-top {
+	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 24px;
-	background: linear-gradient(
-		135deg,
-		var(--purple-800) 0%,
-		var(--purple-700) 40%,
-		var(--purple-600) 100%
-	);
-	color: white;
-	height: var(--header-height);
-	z-index: 20;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-	box-shadow:
-		0 1px 0 rgba(255, 255, 255, 0.06) inset,
-		0 4px 24px rgba(87, 6, 140, 0.25);
+	gap: 12px;
 }
 
-.header-left {
-	display: flex;
-	align-items: center;
-	gap: 14px;
+.header-title {
+	display: inline-flex;
+	align-items: baseline;
+	font-family: var(--font-mono);
+	font-size: 15px;
+	line-height: 1;
+	letter-spacing: -0.01em;
+	font-feature-settings: "zero" 1, "ss01" 1, "cv11" 1;
 }
 
-.header-left h1 {
-	font-size: 17px;
+.header-path {
+	color: var(--nyu-purple);
+	opacity: 0.55;
+	font-weight: 500;
+}
+
+.header-app-name {
+	color: var(--text-primary);
+	font-weight: 600;
+}
+
+.header-separator {
+	color: var(--nyu-purple);
+	opacity: 0.35;
+	font-weight: 500;
+	margin: 0 1px;
+}
+
+.header-view-name {
+	color: var(--nyu-purple);
+	font-weight: 600;
+}
+
+.header-view-name::after {
+	content: "_";
+	margin-left: 2px;
+	color: var(--nyu-purple);
 	font-weight: 700;
-	letter-spacing: -0.02em;
-	display: flex;
-	align-items: center;
-	gap: 10px;
+	animation: header-caret-blink 1.15s steps(1, end) infinite;
 }
 
-.header-icon {
-	width: 22px;
-	height: 22px;
-	opacity: 0.85;
+@keyframes header-caret-blink {
+	0%, 49% {
+		opacity: 1;
+	}
+	50%, 100% {
+		opacity: 0;
+	}
 }
 
-.credits-badge {
+.header-actions {
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
-	padding: 4px 10px 4px 10px;
+}
+
+.header-stat {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 3px 10px 3px 8px;
 	border-radius: 999px;
-	border: 1px solid rgba(255, 255, 255, 0.22);
-	background: rgba(255, 255, 255, 0.06);
-	backdrop-filter: blur(8px);
+	border: 1px solid var(--border-color);
+	background: rgba(87, 6, 140, 0.03);
 	font-family: var(--font-mono);
 	line-height: 1;
 }
 
-.credits-badge-dot {
+.header-stat-dot {
 	width: 6px;
 	height: 6px;
 	border-radius: 999px;
 	background: #34d399;
-	box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.22);
+	box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18);
 	animation: credits-pulse 2.4s ease-in-out infinite;
 }
 
 @keyframes credits-pulse {
 	0%,
 	100% {
-		box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18);
+		box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15);
 	}
 	50% {
-		box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.32);
+		box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.3);
 	}
 }
 
-.credits-badge-label {
+.header-stat-label {
 	font-size: 9px;
 	font-weight: 500;
-	letter-spacing: 0.16em;
+	letter-spacing: 0.14em;
 	text-transform: uppercase;
-	color: rgba(255, 255, 255, 0.65);
+	color: var(--text-secondary);
 }
 
-.credits-badge-value {
+.header-stat-value {
 	font-size: 13px;
 	font-weight: 600;
 	letter-spacing: -0.01em;
-	color: #fff;
+	color: var(--nyu-purple);
 	font-variant-numeric: tabular-nums;
-	padding-left: 8px;
-	border-left: 1px solid rgba(255, 255, 255, 0.18);
+	padding-left: 7px;
+	border-left: 1px solid var(--border-color);
+}
+
+.header-meta {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-secondary);
+	letter-spacing: 0.02em;
+	font-variant-numeric: tabular-nums;
+}
+
+.header-term-badge {
+	display: inline-flex;
+	align-items: center;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--nyu-purple);
+	background: rgba(87, 6, 140, 0.08);
+	border: 1px solid rgba(87, 6, 140, 0.18);
+	padding: 2px 7px;
+	border-radius: 4px;
+}
+
+.header-meta-sep {
+	opacity: 0.45;
+}
+
+.header-meta-text {
+	font-weight: 500;
 }
 
 .btn-outline {
@@ -587,12 +671,15 @@ body.weekly-sidebar-collapsed .sidebar {
 	gap: 0;
 	box-shadow: none;
 	transition:
-		box-shadow 0.15s ease,
-		border-color 0.15s ease;
+		box-shadow 0.18s ease,
+		border-color 0.18s ease,
+		background 0.18s ease;
 }
 
 .bucket-wrapper:hover {
-	border-color: var(--border-strong);
+	border-color: rgba(87, 6, 140, 0.22);
+	box-shadow: 0 2px 8px rgba(87, 6, 140, 0.06);
+	background: rgba(255, 255, 255, 0.95);
 }
 
 .bucket-wrapper.is-drop-target {
@@ -617,7 +704,7 @@ body.weekly-sidebar-collapsed .sidebar {
 	gap: 8px;
 	padding: 11px 12px;
 	background: transparent;
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-sm);
 	cursor: pointer;
 	transition: all 0.15s;
 	border: none;
@@ -1338,9 +1425,9 @@ body.weekly-sidebar-collapsed .calendar-container {
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 0.16em;
-	color: var(--text-secondary);
-	background: transparent;
-	border-bottom: 1px solid var(--border-color);
+	color: var(--nyu-purple);
+	background: rgba(87, 6, 140, 0.04);
+	border-bottom: 1px solid rgba(87, 6, 140, 0.1);
 	position: sticky;
 	top: 0;
 	z-index: 10;
@@ -1399,9 +1486,9 @@ body.weekly-sidebar-collapsed .calendar-container {
 	left: var(--time-column-width);
 	right: 0;
 	height: 0;
-	border-top: 1px solid var(--nyu-purple);
+	border-top: 1.5px solid rgba(87, 6, 140, 0.35);
 	pointer-events: none;
-	z-index: 11;
+	z-index: 4;
 	transform: translateY(-0.5px);
 }
 
@@ -1418,10 +1505,10 @@ body.weekly-sidebar-collapsed .calendar-container {
 	width: 7px;
 	height: 7px;
 	border-radius: 999px;
-	background: var(--nyu-purple);
+	background: rgba(87, 6, 140, 0.55);
 	box-shadow:
 		0 0 0 2px var(--bg-color),
-		0 0 0 3px var(--nyu-purple);
+		0 0 0 3px rgba(87, 6, 140, 0.35);
 }
 
 .now-indicator-pill {
@@ -1464,6 +1551,26 @@ body.weekly-sidebar-collapsed .calendar-container {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
+}
+
+/* Compact mode for short classes (≤55 min) — hide title, tighten layout */
+.course-block.is-compact {
+	padding: 4px 8px 4px;
+	gap: 1px;
+}
+
+.course-block.is-compact .course-block-title {
+	display: none;
+}
+
+.course-block.is-compact .course-block-tags {
+	padding-top: 1px;
+	margin-top: auto;
+}
+
+.course-block.is-compact .course-block-pill {
+	font-size: 8px;
+	padding: 0px 5px;
 }
 
 .course-block:hover {

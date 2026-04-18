@@ -1,4 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <rect width="16" height="16" rx="2" fill="#57068c"/>
-  <text x="8" y="12" font-size="10" font-family="Arial" fill="white" text-anchor="middle">A</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7B2FBE"/>
+      <stop offset="100%" stop-color="#3D0066"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD54F"/>
+      <stop offset="100%" stop-color="#FF8F00"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+
+  <!-- Calendar body simplified -->
+  <rect x="22" y="36" width="84" height="70" rx="8" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" stroke-width="3"/>
+
+  <!-- Calendar top bar -->
+  <rect x="22" y="36" width="84" height="20" rx="8" fill="rgba(255,255,255,0.25)"/>
+  <rect x="22" y="48" width="84" height="8" fill="rgba(255,255,255,0.25)"/>
+
+  <!-- Binding rings -->
+  <rect x="41" y="26" width="8" height="18" rx="4" fill="rgba(255,255,255,0.7)"/>
+  <rect x="79" y="26" width="8" height="18" rx="4" fill="rgba(255,255,255,0.7)"/>
+
+  <!-- Lightning bolt (bigger for visibility) -->
+  <polygon points="74,14 54,58 68,58 52,84 82,46 66,46 80,14" fill="url(#bolt)" opacity="0.95"/>
 </svg>

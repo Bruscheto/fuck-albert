@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuck Albert — Test Harness</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .harness-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 24px;
+            background: rgba(87, 6, 140, 0.3);
+            border-bottom: 1px solid rgba(87, 6, 140, 0.5);
+            backdrop-filter: blur(12px);
+        }
+        .harness-header h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: #c084fc;
+            letter-spacing: 0.02em;
+        }
+        .harness-header h1 span { color: rgba(255,255,255,0.4); }
+        .harness-tabs {
+            display: flex;
+            gap: 4px;
+        }
+        .harness-tab {
+            padding: 6px 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .harness-tab:hover { background: rgba(255,255,255,0.05); color: white; }
+        .harness-tab.active {
+            background: rgba(87, 6, 140, 0.5);
+            border-color: rgba(87, 6, 140, 0.8);
+            color: white;
+        }
+        .harness-body { display: flex; flex: 1; height: calc(100vh - 50px); }
+        .frame-popup {
+            width: 400px;
+            border: none;
+            border-right: 2px solid rgba(87,6,140,0.3);
+            flex-shrink: 0;
+        }
+        .frame-calendar {
+            flex: 1;
+            border: none;
+        }
+        .harness-body.side-by-side .frame-popup,
+        .harness-body.side-by-side .frame-calendar { display: block; }
+        .harness-body.popup-only .frame-popup { width: 100%; }
+        .harness-body.popup-only .frame-calendar { display: none; }
+        .harness-body.calendar-only .frame-popup { display: none; }
+        .harness-body.calendar-only .frame-calendar { display: block; }
+    </style>
+    <script>
+    // MUST be in <head> so it runs BEFORE iframes load and execute chrome-mock.js
+    window.__sharedStorage = {
+        courses: [
+            {
+                id: "cs-ua101-001", courseCode: "CSCI-UA 101", section: "001",
+                title: "Introduction to Computer Science", credits: 4, bucket: "required",
+                components: [
+                    { type: "Lecture", days: ["Mon", "Wed"], timeRange: { start: { hours: 9, minutes: 30 }, end: { hours: 10, minutes: 45 } }, instructor: "Craig Kapp", room: "GCASL 361" },
+                    { type: "Recitation", days: ["Fri"], timeRange: { start: { hours: 12, minutes: 30 }, end: { hours: 13, minutes: 20 } }, instructor: "TBA", room: "GCASL 275" }
+                ]
+            },
+            {
+                id: "cs-ua201-002", courseCode: "CSCI-UA 201", section: "002",
+                title: "Computer Systems Organization", credits: 4, bucket: "required",
+                components: [
+                    { type: "Lecture", days: ["Tue", "Thu"], timeRange: { start: { hours: 11, minutes: 0 }, end: { hours: 12, minutes: 15 } }, instructor: "Gustavo Sandoval", room: "WWH 102" }
+                ]
+            },
+            {
+                id: "cs-ua310-001", courseCode: "CSCI-UA 310", section: "001",
+                title: "Basic Algorithms", credits: 4, bucket: "high",
+                components: [
+                    { type: "Lecture", days: ["Mon", "Wed"], timeRange: { start: { hours: 14, minutes: 0 }, end: { hours: 15, minutes: 15 } }, instructor: "Alan Siegel", room: "WWH 109" }
+                ]
+            },
+            {
+                id: "math-ua120-003", courseCode: "MATH-UA 120", section: "003",
+                title: "Discrete Mathematics", credits: 4, bucket: "required",
+                components: [
+                    { type: "Lecture", days: ["Mon", "Wed"], timeRange: { start: { hours: 11, minutes: 0 }, end: { hours: 12, minutes: 15 } }, instructor: "Yuri Bakhtin", room: "WWH 201" }
+                ]
+            },
+            {
+                id: "core-ua400-001", courseCode: "CORE-UA 400", section: "001",
+                title: "Texts & Ideas: The Modern Self", credits: 4, bucket: "medium",
+                components: [
+                    { type: "Lecture", days: ["Tue", "Thu"], timeRange: { start: { hours: 9, minutes: 30 }, end: { hours: 10, minutes: 45 } }, instructor: "Maria Pearson", room: "SILV 520" }
+                ]
+            },
+            {
+                id: "phys-ua11-001", courseCode: "PHYS-UA 11", section: "001",
+                title: "General Physics I", credits: 3, bucket: "low",
+                components: [
+                    { type: "Lecture", days: ["Mon", "Wed"], timeRange: { start: { hours: 15, minutes: 30 }, end: { hours: 16, minutes: 45 } }, instructor: "Javad Shabani", room: "Meyer 121" },
+                    { type: "Recitation", days: ["Fri"], timeRange: { start: { hours: 9, minutes: 0 }, end: { hours: 10, minutes: 15 } }, instructor: "TBA", room: "Meyer 264" }
+                ]
+            },
+            {
+                id: "econ-ua1-005", courseCode: "ECON-UA 1", section: "005",
+                title: "Intro to Macroeconomics", credits: 4, bucket: "backup",
+                components: [
+                    { type: "Lecture", days: ["Tue", "Thu"], timeRange: { start: { hours: 14, minutes: 0 }, end: { hours: 15, minutes: 15 } }, instructor: "William Easterly", room: "GCASL 269" }
+                ]
+            },
+            {
+                id: "mus-ua160-001", courseCode: "MUS-UA 160", section: "001",
+                title: "World Musics", credits: 4, bucket: null,
+                components: [
+                    { type: "Lecture", days: ["Tue", "Thu"], timeRange: { start: { hours: 15, minutes: 30 }, end: { hours: 16, minutes: 45 } }, instructor: "David Samuels", room: "Online" }
+                ]
+            }
+        ],
+        buckets: [
+            { id: "required", name: "Required", color: "#ef4444", priority: 1 },
+            { id: "high", name: "High Priority", color: "#f97316", priority: 2 },
+            { id: "medium", name: "Medium Priority", color: "#eab308", priority: 3 },
+            { id: "low", name: "Low Priority", color: "#22c55e", priority: 4 },
+            { id: "backup", name: "Backup", color: "#6b7280", priority: 5 }
+        ],
+        plannerSelection: [
+            "cs-ua101-001", "cs-ua201-002", "cs-ua310-001",
+            "math-ua120-003", "core-ua400-001"
+        ],
+        professorRatings: {
+            "Craig Kapp": 4.2, "Gustavo Sandoval": 3.8,
+            "Alan Siegel": 2.9, "William Easterly": 4.7, "Maria Pearson": 3.5
+        },
+        settings: { showWeekends: false, startHour: 7, endHour: 22 }
+    };
+    window.__storageListeners = [];
+    </script>
+</head>
+<body>
+    <div class="harness-header">
+        <h1><span>test://</span>fuck-albert</h1>
+        <div class="harness-tabs">
+            <button class="harness-tab active" data-mode="side-by-side">Both</button>
+            <button class="harness-tab" data-mode="popup-only">Popup</button>
+            <button class="harness-tab" data-mode="calendar-only">Calendar</button>
+        </div>
+    </div>
+    <div class="harness-body side-by-side" id="harness-body">
+        <iframe class="frame-popup" id="frame-popup" src="src/popup.html"></iframe>
+        <iframe class="frame-calendar" id="frame-calendar" src="src/weekly-view.html"></iframe>
+    </div>
+
+    <script>
+    // Tab switching
+    document.querySelectorAll('.harness-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.harness-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('harness-body').className = 'harness-body ' + tab.dataset.mode;
+        });
+    });
+    </script>
+</body>
+</html>

@@ -5,13 +5,10 @@ A Chrome extension that unfucks NYU's Albert course registration. Scrapes your s
 ## What it does
 
 - **Reads your shopping cart** — auto-parses courses, times, instructors, rooms, credits from Albert's DOM
-- **Weekly calendar** — see your entire schedule laid out, conflicts highlighted in real time
+- **Calendar page** — full weekly schedule view with conflict highlighting, clean grid layout
 - **Priority buckets** — drag courses into Required / High / Medium / Low / Backup tiers
-- **Auto planner** — generates a conflict-free schedule by priority (greedy)
-- **Side panel mode** — use it inline while browsing Albert, or as a popup
 - **Course metadata panel** — quick-view course details without leaving the page
 - **Export/Import** — backup your picks as JSON
-- **Keyboard shortcut** — `Alt+Shift+P` to open the planner
 
 ## Install
 

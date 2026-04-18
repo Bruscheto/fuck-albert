@@ -7,27 +7,28 @@
     <title>Weekly Schedule - Albert Course Planner</title>
     <link rel="stylesheet" href="course-metadata-panel.css">
     <link rel="stylesheet" href="weekly-view.css">
+    <script src="chrome-mock.js"></script>
 </head>
 
 <body>
     <div class="weekly-container">
         <header class="weekly-header">
-            <div class="header-left">
-                <h1>
-                    <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                        <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    Weekly Schedule
-                </h1>
-                <span class="credits-badge">
-                    <span class="credits-badge-dot" aria-hidden="true"></span>
-                    <span class="credits-badge-label">Credits</span>
-                    <span class="credits-badge-value" id="total-credits">0</span>
-                </span>
+            <div class="header-top">
+                <div class="header-title">
+                    <span class="header-path" aria-hidden="true">~/</span><span class="header-app-name">fuck-albert</span><span class="header-separator" aria-hidden="true">/</span><span class="header-view-name">weekly</span>
+                </div>
+                <div class="header-actions">
+                    <span class="header-stat">
+                        <span class="header-stat-dot" aria-hidden="true"></span>
+                        <span class="header-stat-label">credits</span>
+                        <span class="header-stat-value" id="total-credits">0</span>
+                    </span>
+                </div>
+            </div>
+            <div class="header-meta">
+                <span class="header-term-badge" id="weekly-term-badge">schedule</span>
+                <span class="header-meta-sep" aria-hidden="true">·</span>
+                <span class="header-meta-text" id="header-course-count">0 courses planned</span>
             </div>
         </header>
 

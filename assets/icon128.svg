@@ -1,4 +1,57 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="16" fill="#57068c"/>
-  <text x="64" y="90" font-size="72" font-family="Arial" fill="white" text-anchor="middle">A</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7B2FBE"/>
+      <stop offset="100%" stop-color="#3D0066"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD54F"/>
+      <stop offset="100%" stop-color="#FF8F00"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+
+  <!-- Subtle inner border -->
+  <rect x="3" y="3" width="122" height="122" rx="21" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Calendar body -->
+  <rect x="24" y="36" width="80" height="68" rx="8" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+
+  <!-- Calendar top bar -->
+  <rect x="24" y="36" width="80" height="18" rx="8" fill="rgba(255,255,255,0.2)"/>
+  <rect x="24" y="46" width="80" height="8" fill="rgba(255,255,255,0.2)"/>
+
+  <!-- Calendar binding rings -->
+  <rect x="42" y="28" width="6" height="16" rx="3" fill="rgba(255,255,255,0.6)"/>
+  <rect x="80" y="28" width="6" height="16" rx="3" fill="rgba(255,255,255,0.6)"/>
+
+  <!-- Grid lines (subtle) -->
+  <line x1="44" y1="58" x2="44" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
+  <line x1="64" y1="58" x2="64" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
+  <line x1="84" y1="58" x2="84" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
+  <line x1="24" y1="72" x2="104" y2="72" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
+  <line x1="24" y1="86" x2="104" y2="86" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
+
+  <!-- Colored course blocks -->
+  <rect x="28" y="60" width="13" height="10" rx="2.5" fill="#A78BFA" opacity="0.85"/>
+  <rect x="47" y="74" width="14" height="10" rx="2.5" fill="#34D399" opacity="0.85"/>
+  <rect x="67" y="60" width="14" height="22" rx="2.5" fill="#F472B6" opacity="0.7"/>
+  <rect x="87" y="88" width="14" height="10" rx="2.5" fill="#60A5FA" opacity="0.85"/>
+  <rect x="28" y="88" width="13" height="10" rx="2.5" fill="#FBBF24" opacity="0.85"/>
+  <rect x="47" y="60" width="14" height="10" rx="2.5" fill="#FB923C" opacity="0.75"/>
+
+  <!-- Lightning bolt -->
+  <polygon points="72,16 56,58 68,58 54,82 80,48 66,48 78,16" fill="url(#bolt)" filter="url(#glow)" opacity="0.92"/>
+
+  <!-- Ambient light reflection -->
+  <ellipse cx="48" cy="32" rx="30" ry="14" fill="rgba(255,255,255,0.04)"/>
 </svg>

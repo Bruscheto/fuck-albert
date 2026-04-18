@@ -954,6 +954,11 @@ function updatePlannerStats(plannedCourses, plannedSchedule) {
 	statCourses.textContent = totalPlanned;
 	statHours.textContent = weeklyHours.toFixed(1);
 
+	const headerCourseCount = document.getElementById("header-course-count");
+	if (headerCourseCount) {
+		headerCourseCount.textContent = `${totalPlanned} course${totalPlanned !== 1 ? "s" : ""} planned`;
+	}
+
 	const statEarliest = document.getElementById("stat-earliest");
 	const statLatest = document.getElementById("stat-latest");
 
@@ -1291,6 +1296,11 @@ function createCourseBlock(component, bucketDetails, options = {}) {
 	block.style.height = `${(duration / 60) * HOUR_HEIGHT}px`;
 	block.style.left = left;
 	block.style.width = width;
+
+	// Compact mode for short classes — hide title, keep code + time + tags
+	if (duration <= 55) {
+		block.classList.add("is-compact");
+	}
 
 	const bucketInfo = component.bucket ? bucketDetails[component.bucket] : null;
 	const color = courseCodeToColor(component.courseCode);
@@ -2054,7 +2064,7 @@ function setupEventListeners() {
 	chrome.storage.onChanged.addListener((changes, namespace) => {
 		if (
 			namespace === "local" &&
-			(changes.courses || changes.buckets || changes.plannerSelection)
+			(changes.courses || changes.buckets || changes.plannerSelection || changes.professorRatings)
 		) {
 			clearCourseBlocks();
 			loadSchedule();
