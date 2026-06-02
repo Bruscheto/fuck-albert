@@ -54,23 +54,21 @@
 	box-sizing: border-box;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-	width: 4px;
-	height: 4px;
+/* Scrollbar — hidden globally on weekly view; scrolling still works */
+html,
+body,
+* {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
 }
 
-::-webkit-scrollbar-track {
-	background: transparent;
-}
-
+::-webkit-scrollbar,
+::-webkit-scrollbar-track,
 ::-webkit-scrollbar-thumb {
-	background: rgba(87, 6, 140, 0.15);
-	border-radius: 99px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-	background: rgba(87, 6, 140, 0.3);
+	width: 0 !important;
+	height: 0 !important;
+	background: transparent !important;
+	display: none !important;
 }
 
 body {
@@ -263,6 +261,56 @@ h4 {
 	color: var(--text-secondary);
 	letter-spacing: 0.02em;
 	font-variant-numeric: tabular-nums;
+}
+
+.header-action-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px;
+	border-radius: 999px;
+	border: 1px solid var(--border-color);
+	background: rgba(87, 6, 140, 0.03);
+	color: var(--text-secondary);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	font-weight: 500;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	line-height: 1;
+	cursor: pointer;
+	transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease,
+		transform 0.05s ease;
+}
+
+.header-action-btn:hover {
+	color: var(--nyu-purple);
+	border-color: rgba(87, 6, 140, 0.35);
+	background: rgba(87, 6, 140, 0.08);
+}
+
+.header-action-btn:active {
+	transform: translateY(1px);
+}
+
+.header-action-btn:focus-visible {
+	outline: 2px solid var(--nyu-purple);
+	outline-offset: 2px;
+}
+
+.header-action-btn[disabled] {
+	opacity: 0.5;
+	cursor: progress;
+}
+
+.header-action-btn svg {
+	width: 12px;
+	height: 12px;
+	stroke-width: 2.2;
+}
+
+.header-action-btn-label {
+	display: inline-block;
 }
 
 .header-term-badge {
@@ -1287,6 +1335,14 @@ body.weekly-sidebar-collapsed .sidebar {
 	overscroll-behavior: contain;
 	scroll-behavior: smooth;
 	transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.calendar-container::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
 }
 
 body.weekly-sidebar-collapsed .calendar-container {
@@ -1435,7 +1491,7 @@ body.weekly-sidebar-collapsed .calendar-container {
 
 .day-slots {
 	position: relative;
-	height: calc(16 * var(--hour-height));
+	height: calc(var(--day-slot-hours, 16) * var(--hour-height));
 }
 
 /* ── Hour / Quarter Lines ── */

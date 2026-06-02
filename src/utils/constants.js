@@ -50,8 +50,8 @@ export const SELECTORS = {
 };
 
 export const CALENDAR_CONFIG = {
-	START_HOUR: 7,
-	END_HOUR: 23,
+	START_HOUR: 8,
+	END_HOUR: 22,
 	INTERVAL_MINUTES: 30,
 };
 

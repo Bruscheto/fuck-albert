@@ -37,6 +37,7 @@ Chrome extension (Manifest V3) that improves NYU Albert course registration. Scr
 - `https://sis.nyu.edu/*`
 
 ## Plan docs
-- `plan/PROJECT_PLAN.md` — full feature spec and phased roadmap
-- `plan/ideas.md` — feature brainstorm
+- `plan/project-plan.md` — current state + roadmap
+- `plan/ideas.md` — feature backlog
 - `plan/popup-simplification.md` — popup redesign notes
+- `plan/portfolio-demos.md` — HyperFrames portfolio demo plan
